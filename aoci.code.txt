@@ -1,0 +1,1002 @@
+#AOCI-CODE-VOLUME: 1
+
+===/<repository>/===
+.dockerignore[FG4T]: F:声明 Docker 构建上下文排除项：字节码、构建产物、web dist、.git、.env、node_modules 与本地 workspace。 | R:code:Dockerfile | A:Docker 镜像构建 | S:nanobot/web/dist 被排除，dist 只能由 Dockerfile 的 webui 构建阶段产出。
+.gitattributes[FV3T]: F:强制所有 shell 脚本使用 LF 换行，保证 Docker 与 Linux 环境可直接执行。 | R:code:Dockerfile | A:所有 .sh 脚本 | S:仅 *.sh 强制 LF；其他文件需自加规则，否则 CRLF 破坏容器 entrypoint。
+.gitignore[FV4S]: F:忽略本地与生成物：worktree、env 与密钥、WebUI 构建与缓存、Python 字节码与测试缓存、编辑器目录、日志与临时文件、机器绑定配置。 | R:- | A:所有贡献者的本地仓库 | S:.codex/config.toml 属 AOCI 机器绑定配置，被显式忽略，不能提交。
+AGENTS.md[SG8S]: F:给 AI 编码代理的仓库指南：项目概览、开发与校验命令、核心消息流、关键子系统清单、入口点、代码风格与常见文件位置。 | R:code:.agent/design.md,code:.agent/security.md,code:.agent/gotchas.md | A:所有在本仓库工作的编码代理与新人 | S:测试目录镜像 nanobot/ 包结构；严格类型检查用 basedpyright，WebUI 用 bun（npm 只校验 lockfile），ruff 忽略 E501。
+CLAUDE.md[SG2T]: F:单行 @AGENTS.md 引入，让 Claude 系代理复用同一份仓库指南。 | R:code:AGENTS.md | A:Claude 系编码代理 | S:真正内容都在 AGENTS.md，只改这里不生效。
+COMMUNICATION.md[SG1T]: F:提供加入 HKUDS 微信与飞书讨论群的二维码图片与外链。 | R:- | A:README 的社区入口 | S:-
+CONTRIBUTING.md[SG5S]: F:贡献指南：维护者分工、可开 PR 的范围、分支与开发环境搭建、代码风格、提交与评审约定。 | R:code:AGENTS.md,code:.agent/design.md | A:所有外部贡献者与评审者 | S:只有 @re-bin 执行合并（项目负责人），@chengyongru 可评审批准但不合并。
+Dockerfile[OV7T]: F:多阶段镜像：先用 bun 构建 WebUI 到 nanobot/web/dist，再在 uv python3.12 镜像中装依赖与源码，并按 NANOBOT_CHANNELS 预装渠道依赖、以非 root 用户运行。 | R:code:docker-compose.yml,code:docker-compose.bwrap.yml | A:docker build 与 compose 栈、CI 的 docker job | S:依赖必须先于源码安装以复用缓存层，且必须带 hatch_build.py 这个自定义构建钩子；/app/.venv 要对 nanobot 用户可写以支持运行时装渠道依赖，而 /app 与 /app/nanobot 必须不可写。
+LICENSE[SZ2T]: F:MIT 许可全文，版权归 Xubin Ren 与 nanobot 贡献者。 | R:- | A:所有使用者与再分发者 | S:-
+README.md[SG7M]: F:项目门面：多语言文档入口、徽章、核心特性、快速开始、渠道与 provider 列表、WebUI 与部署说明、贡献与社区链接。 | R:code:docs/README.md,code:CONTRIBUTING.md | A:首次了解与安装 nanobot 的用户 | S:正文文档不在仓库内，多语言链接指向 nanobot.wiki，仓库 docs/ 只是其一部分。
+SECURITY.md[SS6M]: F:安全政策：漏洞私密上报流程与响应时限、API Key 与配置文件权限、渠道 allowFrom 访问控制、部署加固与沙箱建议。 | R:code:.agent/security.md | A:部署者与安全报告者 | S:v0.1.4.post3 及更早版本中空 allowFrom 等于放行所有人，之后语义已改，按旧文档配置会误判权限边界。
+THIRD_PARTY_NOTICES.md[SZ3S]: F:随 pip 包分发的第三方组件清单与许可证原文（Tabler Icons 等）。 | R:code:LICENSE | A:pip 包分发与合规审查 | S:-
+conftest.py[TQ7T]: F:跨测试套件的 pytest 基础设施：nanobot 日志启用的隔离 fixture，以及 Windows 下复用系统证书库的 session 级 fixture。 | R:code:nanobot/security/network.py | A:整个测试套件 | S:Windows 分支把指向 certifi 的 create_default_context 重定向到系统根证书（每个客户端省约 0.7 秒），是 session 级 autouse；显式 cafile/capath/cadata 仍必须走真实加载。
+core_agent_lines.sh[XQ2T]: F:统计 nanobot 各子系统行数，分 core（agent/bus/config/cron/session 顶层 py）与 extra（tools/skills/api/cli/channels/utils）两组输出。 | R:- | A:README 与发布说明里引用核心代码量的作者 | S:core 只计顶层 py 文件，tools/ 被单独计数，两者不可相加当作总量。
+docker-compose.bwrap.yml[OV4T]: F:叠加层：给 gateway、api、cli 三个服务加 SYS_ADMIN 并关闭 apparmor 与 seccomp，供 bwrap exec 沙箱使用。 | R:code:docker-compose.yml | A:启用 tools.exec.sandbox=bwrap 的部署者 | S:必须与 docker-compose.yml 用 -f 叠加；默认栈 cap_drop ALL，单独用它没有完整服务定义。
+docker-compose.yml[OV6T]: F:自托管 Compose 栈：gateway、OpenAI 兼容 api 与可选 cli profile，统一挂载 ~/.nanobot 并限制 CPU/内存。 | R:code:Dockerfile,code:docker-compose.bwrap.yml | A:本地与服务器自托管部署 | S:默认 cap_drop ALL，只有叠加 bwrap 覆盖层才加回能力；gateway 健康端口只发布到宿主 loopback。
+entrypoint.sh[OV4T]: F:容器入口：Render 环境初始化配置，root 启动时降权到 nanobot 用户。 | R:code:Dockerfile,code:render.yaml | A:容器与 Render 部署 | S:降权失败必须退出，不能以 root 跑 agent。
+hatch_build.py[OV4S]: F:构建钩子：打包时用 bun/npm 构建 WebUI 到 nanobot/web/dist。 | R:code:pyproject.toml | A:打包与发布 | S:可编辑安装跳过构建；无 package.json 时不动。
+pyproject.toml[FV8S]: F:Python 包定义：依赖、可选 extras、打包入口与工具配置。 | R:code:hatch_build.py | A:改依赖或打包的开发者 | S:可选 extras 与 optional_features 联动，新增 extra 需同步功能发现。
+render.yaml[FO4T]: F:Render 部署蓝图：单 web 服务运行网关与内置 WebUI，密钥在部署时注入。 | R:code:render-config.json | A:在 Render 上部署的用户 | S:密钥不写入仓库，全靠环境变量注入。
+render-config.json[FO3T]: F:Render 部署用的配置模板，密钥以 ${VAR} 占位。 | R:code:render.yaml | A:在 Render 上部署的用户 | S:占位符在运行时解析，直接提交真实密钥会泄露。
+
+===/<repository>/.agent/===
+design.md[SG8T]: F:声明本仓库架构约束：核心保持小、能力放在边缘、少结构多智能、优先重复而非过早抽象、最小改动、PR 保持可评审、动态边界在边缘定型。 | R:code:AGENTS.md,code:.agent/security.md,code:.agent/gotchas.md | A:修改 agent/loop.py、agent/runner.py、channels/ 或 tools/ 的贡献者 | S:loop.py 与 runner.py 是关键核心路径，改动须最小且有理；WebUI/WebSocket 线协议细节（_turn_end、_goal_status、标题刷新）必须留在 WebuiTurnCoordinator 或渠道适配层，不得堆进 AgentLoop。
+gotchas.md[SG8T]: F:汇总易踩陷阱：禁止 ruff format、config 中 ${VAR} 的语义、Windows 兼容差异、提示模板与技能也是行为面、上下文污染、history.jsonl 原子写。 | R:code:AGENTS.md,code:.agent/design.md | A:改动配置加载、提示模板、记忆持久化或 Windows 路径逻辑的贡献者 | S:不要执行 ruff format，它会毁掉 git blame；config 的 ${VAR} 在变量缺失时抛 ValueError 并回退默认配置，不是 shell 默认值语法；history.jsonl 必须保持临时文件+fsync+rename 原子写。
+security.md[SG8T]: F:声明安全边界：工作区限制与能力级额外读写根、SSRF 防护与代理信任边界、MCP HTTP/SSE 传输校验、shell 执行的工作区守卫。 | R:code:AGENTS.md,code:.agent/design.md | A:改动 filesystem、shell、web 及 MCP 客户端相关代码的贡献者 | S:新路径处理必须走 workspace path resolver 或等价包含性检查；所有工具出站 HTTP 必须经 security/network.py 校验，唯一豁免是读取 tools.ssrf_whitelist 的 configure_ssrf_whitelist。
+
+===/<repository>/.github/ISSUE_TEMPLATE/===
+bug_report.yml[FQ3S]: F:结构化 bug 报告表单：问题描述、复现步骤、期望行为、日志、版本、Python 版本、操作系统、渠道与 LLM provider 均为必填。 | R:- | A:提交 issue 的用户与 triage 维护者 | S:-
+config.yml[FQ2T]: F:issue 模板入口配置：关闭空白 issue，并把提问/求助引导到 GitHub Discussions。 | R:- | A:GitHub issue 新建页面 | S:空白 issue 已禁用，提问求助只能走 Discussions。
+feature_request.yml[FQ3T]: F:功能请求表单：动机、期望方案、备选方案与影响范围等结构化字段。 | R:- | A:提交 issue 的用户与 triage 维护者 | S:-
+
+===/<repository>/.github/workflows/===
+ci.yml[OV8S]: F:CI 流水线：变更检测门控、Python 测试矩阵（3.11／3.14／Windows）、WebUI 的 lint/test/build、Docker 构建与运行权限校验。 | R:code:pyproject.toml,code:Dockerfile,code:conftest.py | A:所有 PR 与 main 分支推送 | S:Python job 由 changes 门控，只有 webui/、channels/*/webui/、docs/ 变更时整体跳过；渠道依赖用 install_channel_dependencies 装完后，后续步骤必须 uv run --no-sync，否则会被 uv 同步裁掉。
+
+===/<repository>/docs/===
+README.md[SG5T]: F:文档总入口，按上手、加一项能力、运维、参考、扩展贡献五条路径索引全部文档。 | R:code:docs/guides/README.md,code:docs/architecture.md | A:查找文档的读者 | S:-
+agent-social-network.md[SN4T]: F:介绍 agent 社交网络：接入后 nanobot 能做什么、支持的网络、安全模型、示例工作流与已知限制。 | R:code:docs/concepts.md | A:想让 agent 接入社交网络的使用者 | S:-
+architecture.md[SG8M]: F:架构总览：核心消息流、AgentLoop 与 AgentRunner 的分工、providers/channels/WebUI/tools/config/memory 各子系统、安全边界与扩展点。 | R:code:AGENTS.md,code:.agent/design.md,code:docs/concepts.md | A:需要定位改动位置或排查链路的开发者 | S:排障先分流：路由、会话键、工作区选择、出站投递看 loop.py；provider 调用、工具循环、流式看 runner.py；WebUI 由 WebSocket 渠道提供，不在 18790 健康端点上。
+automations.md[SW6M]: F:自动化手册：定时任务、本地触发器与心跳三类自动化的选型、创建、管理、投递可靠性与排障。 | R:code:docs/chat-commands.md | A:配置周期任务的使用者 | S:-
+channel-package-guide.md[SE8L]: F:渠道包开发指南：包结构与快速上手、manifest 与 runtime 边界、包自带 WebUI 与 i18n、BaseChannel API、流式接口与测试验收标准。 | R:code:nanobot/channels/base.py,code:AGENTS.md | A:新增或改造渠道适配器的贡献者 | S:nanobot 已不再发现 nanobot.channels 的 Python entry-point 组，渠道只能是 nanobot/channels/<name>/ 下带 manifest.py 的包，旧 entry-point 实现必须迁移。
+chat-apps.md[SU6L]: F:各聊天平台接入手册（WhatsApp、Telegram、Discord、Slack、飞书、微信、企业微信、钉钉等），含 WebUI 推荐路径与手工配置模式。 | R:code:docs/chat-commands.md,code:docs/configuration.md | A:接入聊天平台的使用者 | S:-
+chat-commands.md[SU5S]: F:会话内斜杠命令参考：配对、模型预设、本地触发器、周期任务与活动任务。 | R:code:docs/automations.md | A:在聊天里操作 nanobot 的用户 | S:-
+cli-reference.md[SU7M]: F:CLI 参考：全局参数与通用模式，setup、status、agent、webui、gateway、serve、channels、OAuth 等命令与首次自检清单。 | R:code:nanobot/cli/commands.py,code:docs/configuration.md | A:命令行使用者与脚本作者 | S:本文必须与 nanobot/cli/commands.py 的实际参数保持同步，命令或默认值变更要同批更新此处。
+concepts.md[SG7S]: F:概念解释：运行时形态、config 与 workspace 的区别、一次 agent turn 的流程、CLI/gateway/API/WebUI 的关系、provider 与记忆模型。 | R:code:docs/architecture.md | A:建立整体心智模型的新读者 | S:config 与 workspace 是两个概念：配置在 ~/.nanobot/config.json，agent workspace 与 project workspace 也互不相同，别把项目目录当配置目录。
+configuration.md[SC8L]: F:完整配置参考：设置该放在哪里、密钥用 ${VAR} 注入、运行时环境变量、各 provider 与渠道配置项、可观测性与会话压缩等。 | R:code:nanobot/config/schema.py,code:nanobot/config/loader.py | A:所有需要改配置的使用者与运维 | S:生成的 config.json 写 camelCase（snake_case 仅兼容接受）；sessionTtlMinutes 等旧键只是别名，新写入要用 idleCompactAfterMinutes。
+deployment.md[SV7M]: F:部署指南：上线前检查清单、Render/Docker/Compose/系统服务选型、端口与持久化规划、bwrap 沙箱所需额外权限。 | R:code:docker-compose.yml,code:Dockerfile,code:docs/configuration.md | A:自托管与托管平台部署者 | S:端口分工固定：健康检查默认 127.0.0.1:18790，WebUI/WebSocket 8765，nanobot serve 8900；gateway 健康端口只发布到宿主 loopback。
+development.md[SE5S]: F:开发扩展指南：新增 LLM provider 与转写 provider 的步骤、需要实现的接口与注册方式。 | R:code:nanobot/providers/base.py | A:扩展 provider 的贡献者 | S:-
+image-generation.md[SC5L]: F:图像生成与编辑：generate_image 工具、provider/model 选择、产物与提示词技巧。 | R:code:nanobot/agent/tools/image_generation.py | A:要用生图能力的用户 | S:默认关闭，需在 Settings→Image 显式启用。
+memory.md[SG7M]: F:记忆分层设计：会话历史、归档、USER/MEMORY、Dream 整合与 Git 版本化。 | R:code:nanobot/agent/memory.py | A:要理解或调优记忆的开发者 | S:history.jsonl 必须原子写；记忆层与原始转录分离。
+multiple-instances.md[SV4S]: F:多实例并存：用 --config 与 --workspace 隔离配置、工作区与运行数据。 | R:code:nanobot/config/paths.py | A:一台机器跑多个 bot 的用户 | S:实例间路径解析各自独立，别共用同一 config。
+my-tool.md[SC5M]: F:my 工具：让 agent 读改自身运行时状态（迭代上限、上下文窗口、模型预设）。 | R:code:nanobot/agent/tools/self.py | A:要运行时调参的用户 | S:默认只读，写操作需显式开启，部分参数受保护。
+openai-api.md[SE4S]: F:OpenAI 兼容 API 参考：鉴权、端点、文件上传与 curl/Python 示例。 | R:code:nanobot/api/server.py | A:集成 API 的开发者 | S:非本机绑定必须配 apiKey，否则启动失败。
+provider-cookbook.md[SG7L]: F:可直接粘贴的 provider 配方集，附失败现象对照表。 | R:code:docs/providers.md | A:已定 provider 只想照抄的用户 | S:字段级解释在 providers.md，排障先看失败对照表。
+providers.md[SG7L]: F:provider 与模型完整参考：凭证、模型名、base URL、预设与回退解析。 | R:code:nanobot/providers/registry.py | A:首答失败或要换 provider 的用户 | S:先答清凭证归属、模型名、端点三问再动手。
+python-sdk.md[SE7L]: F:Python SDK 完整参考：会话、记忆、流式、hooks 与 API 明细。 | R:code:nanobot/sdk/runtime.py | A:把 agent 嵌进 Python 程序的开发者 | S:SDK 跑的是完整 agent 运行时，不是裸模型调用。
+quick-start.md[SG5M]: F:快速上手唯一目标：先在浏览器拿到一次正常回复，别急着加渠道与部署。 | R:code:docs/start-without-technical-background.md | A:所有新用户 | S:仓库文档跟随 main，稳定包可能还没有新界面。
+release-archive.md[SZ4S]: F:发布与每日更新历史，从 README 移出以保持首页聚焦。 | R:code:README.md | A:关心版本变化的用户 | S:-
+start-without-technical-background.md[SG4S]: F:零基础引导：解释终端、API key、配置文件等术语并给出逐步操作。 | R:code:docs/quick-start.md | A:无技术背景的新用户 | S:-
+troubleshooting.md[SG5M]: F:分层排障手册：CLI→网关→WebUI/渠道，含 status 解读与证据收集。 | R:code:docs/cli-reference.md | A:遇到故障的用户与维护者 | S:先跑 version/status/agent 三步定位层级。
+websocket.md[SE7L]: F:WebSocket 渠道参考：token 鉴权、线协议、多会话复用与安全约束。 | R:code:nanobot/channels/websocket/manifest.py | A:接 WebSocket 的客户端开发者 | S:线协议变更要同步 webui 侧解析。
+webui.md[SU5M]: F:WebUI 使用手册：话题工作区、临时会话、Apps、Skills、设置与局域网访问。 | R:code:nanobot/webui/ | A:浏览器用户 | S:WebUI 由 WebSocket 渠道提供，不在健康端口上。
+
+===/<repository>/docs/guides/===
+README.md[SG3T]: F:任务型指南索引，按启动与使用、接入聊天应用、从代码集成、配置与运维四组排列。 | R:code:docs/README.md | A:按场景找教程的读者 | S:-
+ai-agent-memory.md[SG4T]: F:长期记忆上手指南：会话历史、压缩归档、USER/MEMORY 文件、Dream 整合与 Git 版本化。 | R:code:docs/memory.md | A:想让 agent 跨会话记住偏好的用户 | S:-
+ai-agent-webui.md[SG4T]: F:WebUI 上手指南：浏览器工作台、持久会话、活动时间线、diff 预览与网关连接。 | R:code:docs/webui.md | A:偏好图形界面而非终端的用户 | S:文件预览受当前工作区访问模式约束。
+build-a-personal-ai-agent.md[SG4T]: F:个人 agent 搭建最短路径：装包、配 provider、拿首次回复、进 WebUI。 | R:code:docs/quick-start.md | A:首次搭建个人 agent 的用户 | S:-
+chat-app-ai-agent.md[SG4T]: F:聊天平台接入总览：网关收发、配对审批与各平台子指南索引。 | R:code:docs/chat-apps.md | A:要把 agent 接到即时通讯的用户 | S:-
+configure-langfuse-observability.md[SG4T]: F:用 Langfuse 追踪 provider 调用，含环境变量配置与排障。 | R:code:docs/troubleshooting.md | A:需要可观测性的部署者 | S:凭据只走环境变量，不写进 config.json。
+configure-mcp-tools.md[SG4T]: F:通过 Apps 或 config.json 接入 MCP server 并限定可用工具。 | R:code:docs/guides/mcp-tools-for-ai-agents.md | A:要扩外部工具的贡献者 | S:优先用 enabledTools 白名单而非全量暴露。
+configure-model-fallback.md[SG4T]: F:多模型预设与回退链：主模型失败时按序降级。 | R:code:docs/providers.md | A:追求可用性的部署者 | S:fallbackModels 写的是预设名，不是裸模型 ID。
+configure-ollama-prompt-cache.md[SG5M]: F:诊断并规避 Ollama 工具调用导致的前缀缓存失效，给出派生 tag 方案。 | R:code:docs/providers.md | A:本地 Ollama 上工具调用变慢的用户 | S:只做派生 tag，不改 nanobot 也不覆盖原模型。
+configure-openai-compatible-provider.md[SG4T]: F:自定义 apiBase/apiKey 指向兼容端点并配对应模型预设。 | R:code:docs/provider-cookbook.md | A:接内部网关或本地模型服务的用户 | S:兼容端点不要设 apiType。
+configure-web-search.md[SG4T]: F:网页搜索与抓取配置：默认 DuckDuckGo，可换 API 型 provider。 | R:code:nanobot/agent/tools/web.py | A:需要联网检索的用户 | S:-
+deploy-nanobot-gateway.md[SV4T]: F:网关部署指南：Docker、systemd、LaunchAgent 三条常驻路径与端口规划。 | R:code:docs/deployment.md | A:要长期托管的部署者 | S:健康 18790、WebUI 8765、serve 8900 端口固定分工。
+discord-ai-agent.md[SU4S]: F:Discord 接入：建应用、开 Message Content intent、启用 discord 渠道。 | R:code:nanobot/channels/discord/manifest.py | A:Discord 用户 | S:须在开发者后台开启 MESSAGE CONTENT INTENT。
+email-ai-agent.md[SU4T]: F:邮件代理接入：IMAP 轮询收信、SMTP 回信，配允许发件人。 | R:code:nanobot/channels/email/manifest.py | A:邮件场景用户 | S:Gmail 用应用专用密码，别用账号密码。
+feishu-ai-agent.md[SU4S]: F:飞书/Lark 接入：WebSocket 长连接，扫码登录免公网 webhook。 | R:code:nanobot/channels/feishu/manifest.py | A:飞书用户 | S:群聊首测保持仅 @ 触发。
+long-running-ai-agent.md[SG4T]: F:长任务路径：持久目标、定时自动化、本地触发器与常驻网关。 | R:code:docs/automations.md | A:跑多步长任务的用户 | S:-
+mattermost-ai-agent.md[SU4S]: F:Mattermost 接入：WebSocket 事件加 REST API，需 serverUrl 与团队 ID。 | R:code:nanobot/channels/mattermost/manifest.py | A:Mattermost 用户 | S:teamId 限定渠道作用范围。
+mcp-tools-for-ai-agents.md[SG4T]: F:MCP 工具接入说明：把外部 MCP server 的工具挂到 agent 上。 | R:code:docs/guides/configure-mcp-tools.md | A:要扩工具的贡献者 | S:与 configure-mcp-tools 高度重叠，改一份要同步另一份。
+openai-compatible-agent-api.md[SG4T]: F:用 nanobot serve 暴露 /v1/chat/completions，可用 session_id 隔离会话。 | R:code:docs/openai-api.md | A:需要 HTTP 集成的开发者 | S:绑 0.0.0.0 时必须配 api.apiKey，否则拒绝启动。
+python-ai-agent-sdk.md[SG4T]: F:Python SDK 入门：Nanobot 会话内调用、流式事件与结构化结果。 | R:code:docs/python-sdk.md | A:写脚本或后端的 Python 开发者 | S:跨语言进程集成改用 OpenAI 兼容 API。
+qq-ai-agent.md[SU4S]: F:QQ 接入：botpy SDK，目前以私聊为主，群聊走 Napcat。 | R:code:nanobot/channels/qq/manifest.py | A:QQ 用户 | S:需把测试账号加入沙箱名单。
+secure-local-ai-agent.md[SS4T]: F:安全加固清单：工作区限制、渠道白名单、密钥管理与 Linux 沙箱。 | R:code:.agent/security.md | A:准备对外暴露 agent 的部署者 | S:bwrap 仅 Linux，其他平台只能靠工作区限制。
+self-hosted-ai-agent.md[SG4T]: F:自托管路径：自有 config 与工作区、常驻网关、可选浏览器与 API 入口。 | R:code:docs/deployment.md | A:自建服务器的用户 | S:-
+slack-ai-agent.md[SU4S]: F:Slack 接入：Socket Mode 免公网 webhook，需 bot 与 app 级双 token。 | R:code:nanobot/channels/slack/manifest.py | A:Slack 用户 | S:app 级 token 需 connections:write。
+telegram-ai-agent.md[SU4S]: F:Telegram 接入：BotFather 建 bot、WebUI 填 token、网关收消息。 | R:code:nanobot/channels/telegram/manifest.py | A:Telegram 用户 | S:-
+wechat-ai-agent.md[SU4S]: F:微信接入：weixin 渠道走 HTTP 长轮询加扫码登录。 | R:code:nanobot/channels/weixin/manifest.py | A:微信用户 | S:-
+whatsapp-ai-agent.md[SU4S]: F:WhatsApp 接入：以设备方式链接，需安装可选依赖并扫码。 | R:code:nanobot/channels/whatsapp/manifest.py | A:WhatsApp 用户 | S:-
+
+===/<repository>/nanobot/===
+__init__.py[CO4S]: F:包入口：版本解析、懒加载导出 SDK 类型与流事件常量。 | R:code:pyproject.toml | A:导入 SDK 的开发者 | S:导出走 _LAZY_EXPORTS，别在模块级 import 重模块。
+__main__.py[CO2T]: F:python -m nanobot 入口，转调 CLI 的 Typer app。 | R:code:nanobot/cli/commands.py | A:以模块方式启动的用户 | S:-
+config_base.py[LC2T]: F:配置 DTO 共享的 Pydantic 基类，刻意放在 config 包之外。 | R:code:nanobot/config/schema.py | A:所有配置模型 | S:放在包外是为了渠道包能独立导入而不触发 config 包副作用。
+nanobot.py[AA6M]: F:nanobot 的高层编程接口：会话、记忆与运行入口。 | R:code:nanobot/agent/loop.py,code:nanobot/sdk/clients.py | A:使用 Python 编程接口的开发者 | S:高层接口要保持稳定，内部重构不应改其签名。
+optional_features.py[IE7L]: F:可选功能发现与启用：依赖组解析、安装与结果上报。 | R:code:pyproject.toml | A:改可选依赖与安装流程的开发者 | S:依赖组从 pyproject 读取，新增 extra 需同步文档与 CI。
+process_runtime.py[IO6L]: F:跨平台后台进程生命周期管理：启动、状态、停止与结果。 | R:code:nanobot/gateway/runtime.py,code:nanobot/api/runtime.py | A:改后台进程管理的开发者 | S:各平台实现差异大，Windows 与 POSIX 都要验证。
+runtime_context.py[AM4M]: F:附加到当前用户提示的持久化运行上下文块。 | R:code:nanobot/session/manager.py | A:改上下文注入的开发者 | S:上下文块在展示时需过滤，不能被当作真实用户输入。
+
+===/<repository>/nanobot/agent/===
+__init__.py[CO4T]: F:agent 包导出：AgentLoop、ContextBuilder、MemoryStore、SkillsLoader、SubagentManager 与 hook 类型。 | R:code:nanobot/agent/loop.py | A:使用 agent 内部 API 的开发者 | S:对外契约集中在 __all__，新增导出要同步。
+autocompact.py[CA4S]: F:空闲会话的主动压缩：按 TTL 判定过期、归档摘要并裁剪回放消息。 | R:code:nanobot/agent/memory.py,code:nanobot/session/manager.py | A:改会话压缩或成本优化的开发者 | S:dream: 前缀的内部会话不参与压缩。
+automation_turns.py[CA4S]: F:会话级自动化轮次协调：去重、活跃时延后、完成后投递下一轮。 | R:code:nanobot/bus/events.py | A:改定时任务或触发器投递的开发者 | S:自动化轮次不能混入实时注入队列。
+context.py[CA6M]: F:组装系统提示与消息：身份、引导文件、技能、MCP/CLI 会话能力与运行时上下文块。 | R:code:nanobot/agent/memory.py,code:nanobot/agent/skills.py | A:改提示组装或上下文注入的开发者 | S:提示模板属行为面，改动等同功能变更。
+context_governance.py[DM7L]: F:模型侧消息治理：工具结果规范化、工具调用名校验与上下文裁剪。 | R:code:nanobot/agent/runner.py | A:改模型可见上下文的开发者 | S:工具调用名非法需剔除而非透传；工具结果内容在进入模型前统一规范化。
+cron_turns.py[DW4T]: F:定时任务的轮次协调：会话繁忙时延后 cron 轮次。 | R:code:nanobot/cron/service.py,code:nanobot/agent/automation_turns.py | A:改定时任务调度时机的开发者 | S:绑定会话的 cron 轮次需等会话空闲，直接插入会与用户轮次冲突。
+goal_permission.py[DS3T]: F:持续目标变更的轮次级许可，默认拒绝。 | R:code:nanobot/agent/tools/long_task.py | A:改长期目标能力的开发者 | S:许可是 contextvar 且按轮次生效，未显式授予时不得变更目标。
+hook.py[DM5M]: F:agent 生命周期钩子原语：运行/轮次上下文、组合钩子与 SDK 捕获钩子。 | R:code:nanobot/agent/turn_hooks.py | A:新增或修改 agent 钩子的开发者 | S:钩子异常不得中断主流程，组合钩子按注册顺序调用。
+loop.py[DA9L]: F:agent 主循环：入站消息取用、轮次构建、运行器调用与出站投递。 | R:code:nanobot/agent/runner.py,code:nanobot/bus/queue.py,code:nanobot/session/manager.py | A:任何改动 agent 核心行为的开发者 | S:核心需保持精简；新能力优先放边缘。轮次状态跨多次 await，注意取消与中断路径。
+memory.py[DP8L]: F:记忆系统：记忆文件读写、归档与 Dream 整合流程。 | R:code:nanobot/utils/gitstore.py,code:nanobot/templates/agent/dream.md | A:改记忆与归档行为的开发者 | S:记忆是文件 I/O，需原子写；Dream 变更要按游标提交，避免重复整合。
+model_presets.py[DC5T]: F:运行时模型预设的解析与快照构建。 | R:code:nanobot/config/schema.py | A:改模型预设的开发者 | S:预设名需归一化后再比较，大小写与分隔符差异视为同名。
+model_runtime.py[DA5M]: F:默认与覆盖式 LLM 运行时的统一解析边界。 | R:code:nanobot/providers/factory.py | A:改模型选择的开发者 | S:运行时装配必须经此解析，绕过会丢失预设与覆盖优先级。
+progress_hook.py[DO5M]: F:把运行器事件适配成渠道进度展示的钩子。 | R:code:nanobot/bus/progress.py | A:改进度展示的开发者 | S:进度输出需节流，高频事件直接推送会刷屏并压垮渠道。
+runner.py[DA9L]: F:通用工具型 agent 执行循环：迭代、工具调用、预算与最终化重试。 | R:code:nanobot/agent/loop.py,code:nanobot/agent/context_governance.py | A:改工具调用与迭代逻辑的开发者 | S:预算耗尽与最大迭代需产出明确收尾消息，不能静默截断。
+skills.py[DE5M]: F:技能加载器：扫描内置与工作区技能并构建技能段落。 | R:code:nanobot/utils/prompt_templates.py | A:改技能加载的开发者 | S:技能说明也是提示面，改动等同行为变更，需要回归测试。
+subagent.py[DA6L]: F:子代理管理器：后台任务派发、状态跟踪与宣告消息。 | R:code:nanobot/agent/tools/spawn.py,code:nanobot/utils/subagent_channel_display.py | A:改子代理能力的开发者 | S:子代理状态保存在管理器内；宣告正文含内部脚手架，面向用户前必须剥离。
+turn_delivery.py[DM5M]: F:轮次可见生命周期的路由与发布。 | R:code:nanobot/bus/outbound_events.py | A:改轮次投递的开发者 | S:投递路由需与会话来源一致，跨会话投递会串消息。
+turn_hooks.py[DM4T]: F:按轮次装配钩子的规格与构建。 | R:code:nanobot/agent/hook.py | A:改钩子装配的开发者 | S:-
+
+===/<repository>/nanobot/webui/===
+__init__.py[CO1T]: F:WebUI 后端辅助包的命名空间占位。 | R:- | A:WebUI 后端模块 | S:-
+attachment_ingress.py[CU4S]: F:校验并落盘入站 WebUI 附件：图片/视频/文件数量、总大小与 MIME 白名单。 | R:code:nanobot/webui/ingress_policy.py,code:nanobot/utils/media_decode.py | A:改附件入站策略的开发者 | S:拒绝原因是固定字面量集合，前端按这些值做提示文案，不能随意改名。
+build.py[OV4M]: F:保持打包 WebUI 与源码树同步：按 buildMode 决定自动构建、提示、警告或跳过。 | R:code:hatch_build.py,code:nanobot/webui/dev.py | A:改打包与 WebUI 构建流程的开发者 | S:buildMode 为 auto/prompt/warn/skip 四态；可编辑安装与无 package.json 时不应触发构建。
+cli_apps_api.py[CU4S]: F:WebUI 的 CLI Apps 接口：列出、启动与管理本地 CLI 应用，名称按正则校验。 | R:code:nanobot/apps/cli/manager.py | A:改 CLI Apps 功能的开发者 | S:应用名必须匹配 _CLI_APP_NAME_RE，非法名直接拒绝。
+dev.py[OV4M]: F:管理 Vite 开发服务器生命周期：选端口、起子进程、健康探测与退出清理。 | R:code:nanobot/webui/build.py | A:本地开发 WebUI 的贡献者 | S:开发服务器与打包产物是两条路径，改端口逻辑要同时验证 nanobot webui --dev。
+file_preview.py[CU3S]: F:工作区受限的源码预览：解析路径、限制预览字节并拒绝越界访问。 | R:code:nanobot/security/workspace_policy.py | A:改文件预览的开发者 | S:预览路径必须经 resolve_allowed_path 校验，不能直接拼路径。
+forking.py[CU4S]: F:会话分叉编排：复制转录、写分叉标记并生成新会话键。 | R:code:nanobot/webui/transcript.py,code:nanobot/session/manager.py | A:改会话分叉功能的开发者 | S:分叉要同时处理转录与标题元数据，只复制会话历史会丢 WebUI 展示。
+gateway_services.py[CU4S]: F:组装内嵌 WebUI 网关服务：令牌存储、附件策略与媒体服务依赖注入。 | R:code:nanobot/webui/gateway_tokens.py,code:nanobot/webui/media_gateway.py | A:改网关装配的开发者 | S:这里是组合层，业务逻辑不要下沉到这里。
+gateway_tokens.py[CU5S]: F:网关令牌状态：签发短时令牌并按 audience（client/webui）区分用途。 | R:code:nanobot/webui/http_utils.py | A:改 WebUI 鉴权的开发者 | S:令牌只在内存中按 audience 区分，跨用途复用会被判无效。
+http_utils.py[CU5M]: F:WebUI HTTP 公共工具：Bearer 解析、查询参数、gzip 响应、JSON 错误与 CSP 等头部。 | R:code:nanobot/webui/ws_http.py | A:改 WebUI HTTP 路由的开发者 | S:JSON 响应仅在超过阈值时 gzip；错误响应格式需与前端解析保持一致。
+ingress_policy.py[CU4T]: F:定义入站 WebUI 消息的业务上限：文本字节数与附件数量/大小配额。 | R:code:nanobot/webui/attachment_ingress.py | A:改入站策略的开发者 | S:这是语义限额层，WebSocket 帧上限属传输层，两者不可混用。
+mcp_presets_api.py[CU6L]: F:WebUI 的 MCP 预设管理：内置预设目录、安装/编辑/删除、命令与环境校验。 | R:code:nanobot/agent/tools/mcp.py,code:nanobot/webui/settings_api.py | A:改 MCP 预设功能与设置界面的开发者 | S:预设命令用 shlex 解析并校验可执行文件存在；改动预设 schema 要同步前端与 settings_api。
+mcp_presets_runtime.py[CU2T]: F:兼容导出：把 MCP 会话元数据转发到 agent.tools.mcp.session_extra。 | R:code:nanobot/agent/tools/mcp.py | A:保留旧导入路径的代码 | S:仅为兼容存在，新代码应直接从 agent.tools.mcp 导入。
+media_api.py[CU5M]: F:签名媒体 URL 的签发与响应：HMAC 签名、路径校验、按 MIME 推流。 | R:code:nanobot/webui/media_gateway.py,code:nanobot/utils/helpers.py | A:改 WebUI 媒体访问的开发者 | S:媒体 URL 必须签名，签名校验失败直接拒绝，不得回退到直接读文件。
+media_gateway.py[CU4S]: F:媒体网关服务：把入站附件存储与签名媒体路由串起来供 HTTP 与 WS 共用。 | R:code:nanobot/webui/media_api.py,code:nanobot/webui/attachment_ingress.py | A:改媒体链路的开发者 | S:HTTP 路由与 WebSocket 帧共用同一实现，改动要两条路径一起验证。
+metadata.py[CU2T]: F:集中定义 WebUI 与 WebSocket 共用的元数据键名常量。 | R:code:nanobot/webui/session_access.py | A:读写会话元数据的开发者 | S:键名是跨模块契约，改名必须全仓搜索替换。
+nanobot_features_api.py[CU3T]: F:WebUI 设置里的可选功能开关：查询、启用与禁用渠道等可选依赖。 | R:code:nanobot/optional_features.py | A:改可选功能开关的开发者 | S:开关实际安装依赖，失败必须回传给前端而不是静默忽略。
+session_access.py[CU5M]: F:读取并校验持久化会话供 WebUI 与 session 工具使用，含运行时上下文与可见性过滤。 | R:code:nanobot/session/history_visibility.py,code:nanobot/runtime_context.py | A:改会话读取的开发者 | S:隐藏历史与运行时上下文块必须在读出时过滤，不能交给前端隐藏。
+session_automations.py[CU5M]: F:把定时任务与本地触发器转成 WebUI 展示用载荷，含状态与下次运行时间。 | R:code:nanobot/cron/types.py,code:nanobot/triggers/local_types.py | A:改自动化界面的开发者 | S:此处只做展示映射，调度真值在 cron/triggers，不要在 UI 层重算计划。
+session_list_index.py[CU5L]: F:WebUI 会话列表的纯缓存索引：按文件签名增量重建、生成预览与活动时间。 | R:code:nanobot/session/manager.py | A:改侧边栏性能的开发者 | S:索引是纯缓存，会话真值在 SessionManager；索引损坏必须可重建，不能反向写会话。
+settings_api.py[CU8L]: F:WebUI 设置的读写主体：provider/模型预设/渠道/图像与可观测性载荷，且只暴露白名单内的配置变更。 | R:code:nanobot/config/schema.py,code:nanobot/providers/registry.py,code:nanobot/webui/settings_routes.py | A:改设置界面与配置写入的开发者 | S:写入必须走白名单字段，任意路径改 config 会造成越权；密钥响应需脱敏，新增字段要同步前端类型。
+settings_routes.py[CU6L]: F:设置 API 的 HTTP 路由适配层：请求解析、参数校验与响应整形，保持与 websocket 渠道解耦。 | R:code:nanobot/webui/settings_api.py,code:nanobot/webui/settings_services.py | A:改设置路由的开发者 | S:路由处理器放在这里，不要塞回 channels/websocket；传输层只负责鉴权与收发。
+settings_services.py[CU5S]: F:网关持有的设置侧状态：OAuth 流程注册表与配置读写序列化。 | R:code:nanobot/config/loader.py | A:改设置服务状态的开发者 | S:OAuth 并发流程受 _WEBUI_OAUTH_MAX_FLOWS 限制，超限需拒绝而非覆盖。
+sidebar_state.py[CU3S]: F:持久化侧边栏与工作区 UI 状态，按当前实例数据目录隔离。 | R:code:nanobot/config/paths.py | A:改侧边栏持久化的开发者 | S:这是纯 UI 状态，不得写入 agent 会话或 config。
+skills_api.py[CU5M]: F:WebUI 技能摘要与管理：列出技能、启用禁用与工作区校验。 | R:code:nanobot/agent/skills.py,code:nanobot/config/loader.py | A:改技能界面的开发者 | S:技能路径必须经 require_path_within 校验，避免越界写工作区外文件。
+skills_marketplace.py[CU6L]: F:从公开 Agent Skills 目录搜索并安装技能：下载、校验与解包到工作区。 | R:code:nanobot/security/network.py,code:nanobot/agent/skills.py | A:改技能市场的开发者 | S:下载必须经安全网络层并防路径穿越，zip 条目要按 PurePosixPath 校验后再落盘。
+temporary_chats.py[CU4M]: F:临时会话行为：连接级会话、显式丢弃与运行控制元数据传递。 | R:code:nanobot/bus/events.py,code:nanobot/security/workspace_access.py | A:改临时会话的开发者 | S:临时会话靠 RUNTIME_CONTROL_SESSION_DISCARD 清理，断连路径必须覆盖。
+thread_disk.py[CU2T]: F:兼容旧的 WebUI JSON 快照路径并删除遗留文件，转录已迁到 transcript。 | R:code:nanobot/webui/transcript.py | A:维护历史数据兼容的开发者 | S:仅作迁移兼容，新数据一律写 transcript。
+token_usage.py[CU5M]: F:工作区维度的 token 用量遥测：按 hook 采集、按时区聚合供概览面板展示。 | R:code:nanobot/agent/hook.py | A:改用量统计的开发者 | S:聚合按工作区与时区分桶，时区缺失要回退而不是抛错。
+transcript.py[CU7L]: F:WebUI 专用的只追加展示转录（JSONL）：分段落盘、回放身份、附件重写与租约回收。 | R:code:nanobot/session/manager.py,code:nanobot/config/paths.py | A:改 WebUI 转录或消息回放的开发者 | S:转录是展示层数据，与 agent 会话分离；写入必须按行追加并保证回放身份稳定，改结构要能兼容既有段文件。
+transcription_ws.py[CU3T]: F:处理 WebUI 语音转写请求：解析信封、解析 provider 配置并返回事件载荷。 | R:code:nanobot/audio/transcription.py | A:改语音输入功能的开发者 | S:请求 ID 长度受限，超长直接拒绝。
+version_check.py[CU2T]: F:按需检查 PyPI 上的新版本，不做后台轮询。 | R:code:nanobot/__init__.py | A:改版本检查的开发者 | S:只在显式请求时联网，禁止加后台定时轮询。
+websocket_logging.py[CO3T]: F:WebUI WebSocket 的日志降噪：把客户端断连类异常识别为正常断开。 | R:code:nanobot/webui/ws_http.py | A:改 WebSocket 日志的开发者 | S:握手期断连属正常，不要升级为 error 日志。
+workspaces.py[CU6M]: F:持久化项目工作区与访问模式：工作区作用域构建、默认访问模式读写与校验。 | R:code:nanobot/security/workspace_access.py,code:nanobot/config/paths.py | A:改工作区管理的开发者 | S:作用域必须经 WorkspaceScope 构建，绕过它会破坏访问控制边界。
+ws_http.py[CU7L]: F:WebSocket 渠道的 HTTP 路由处理器：bootstrap、会话、设置、媒体、命令、静态资源与令牌管理。 | R:code:nanobot/channels/websocket/manifest.py,code:nanobot/webui/settings_routes.py | A:改 WebUI HTTP 接口的开发者 | S:/api/ 路由 404 时不得回落 SPA；新增路由要同时处理鉴权、gzip 与错误格式。
+
+===/<repository>/nanobot/agent/tools/===
+__init__.py[CE2T]: F:工具包入口，集中再导出工具基类与内置工具实现。 | R:code:nanobot/agent/tools/base.py | A:使用工具 API 的开发者 | S:-
+apply_patch.py[DE6M]: F:结构化补丁工具：校验路径、按上下文应用编辑并回传改动统计。 | R:code:nanobot/agent/tools/filesystem.py,code:nanobot/agent/tools/path_utils.py | A:改文件编辑能力的开发者 | S:补丁必须带足上下文定位；路径需经工作区校验，越界直接拒绝。
+base.py[LE7M]: F:工具抽象基类：Tool/Schema 契约、ToolResult 字符串语义与参数 schema 转函数签名。 | R:code:nanobot/agent/tools/schema.py | A:新增或修改工具的开发者 | S:ToolResult 继承 str，用 is_tool_error_result 判定错误前缀，别靠抛异常表达工具失败。
+cli_apps.py[IE4S]: F:受控运行已安装的 CLI Apps 并回传输出。 | R:code:nanobot/apps/cli/manager.py | A:启用 CLI Apps 的用户 | S:只在受控目录内执行，命令白名单由 manager 决定。
+context.py[CG5T]: F:工具的运行时上下文：请求上下文绑定与复位、会话键与工具级上下文对象。 | R:code:nanobot/bus/events.py | A:需要会话信息的工具实现者 | S:用 contextvar 绑定并在 finally 复位，跨请求泄漏会串会话。
+cron.py[AW5M]: F:cron 工具：让 agent 创建、查看与取消定时任务。 | R:code:nanobot/cron/scheduler.py | A:要给 agent 加定时能力的开发者 | S:一次性与周期任务的 schedule 校验在 cron 层，工具层不能自行放宽。
+exec_session.py[RE6L]: F:长时 shell 会话管理：多会话、有界输出缓冲、stdin 写入与轮询工具。 | R:code:nanobot/agent/tools/shell.py | A:改交互式执行或后台进程管理的开发者 | S:输出缓冲必须有界并在截断时给出提示；会话超时要显式回收，避免僵尸进程。
+file_state.py[DD4M]: F:按会话记录文件读取状态，用于编辑前提示与重复读取去重。 | R:code:nanobot/agent/tools/filesystem.py | A:改读改一致性逻辑的开发者 | S:状态按文件哈希跟踪，写入后需更新，否则会误判未读。
+filesystem.py[CE8L]: F:文件工具集：读取、写入、编辑、列目录，含工作区边界、引号风格保持与设备文件拦截。 | R:code:nanobot/agent/tools/path_utils.py,code:nanobot/security/workspace_policy.py | A:改文件读写能力的开发者 | S:所有路径必须经工作区解析；编辑要保持原文引号风格；设备文件必须拦截。
+image_generation.py[IA4M]: F:图像生成工具及其热重载：按配置调用 provider 并落盘产物。 | R:code:nanobot/providers/image_generation.py | A:改图像生成能力的开发者 | S:配置变更通过 runtime control 触发重载，不要重启整个 agent。
+loader.py[CE5S]: F:工具发现与注册：扫描包内工具模块并实例化注册。 | R:code:nanobot/agent/tools/registry.py | A:新增内置工具的开发者 | S:模块需符合扫描约定才会被自动发现，新增工具要同步可用性开关。
+long_task.py[AW5M]: F:持续目标工具：创建与更新长期目标，执行边界需用户显式同意。 | R:code:nanobot/agent/goals.py | A:改长任务能力的开发者 | S:没有用户显式开启时不得启用长期目标，这是执行边界不是 UI 偏好。
+mcp.py[IN8L]: F:MCP 客户端：连接 server、把远端工具包装成本地工具、处理进度通知与传输校验。 | R:code:nanobot/security/network.py | A:改 MCP 接入的开发者 | S:HTTP/SSE 传输必须校验目标地址；进度通知需容忍畸形消息，不能因通知解析失败断开连接。
+message.py[IM5M]: F:消息工具：让 agent 主动向用户或其他渠道发送消息。 | R:code:nanobot/bus/queue.py | A:改主动消息能力的开发者 | S:发送目标渠道需来自会话上下文，不能由模型随意指定外部地址。
+path_utils.py[CS4T]: F:工作区受限路径解析的共享入口。 | R:code:nanobot/security/workspace_policy.py | A:所有文件类工具 | S:工具侧一律经此解析路径，不要自行拼绝对路径。
+registry.py[CE6M]: F:工具注册表：注册、注销、按名查找与错误结果判定。 | R:code:nanobot/agent/tools/base.py | A:改工具装配的开发者 | S:工具名是模型可见契约，改名等于破坏调用契约。
+runtime_control.py[AC6M]: F:运行时状态边界：为 my 工具提供快照与受控变更（模型预设、web/exec 配置、子代理）。 | R:code:nanobot/agent/tools/self.py | A:改运行时调参能力的开发者 | S:只暴露白名单字段的变更，快照与写回路必须成对出现。
+sandbox.py[RE5S]: F:shell 沙箱后端：按名称包装命令并规范化绑挂路径。 | R:code:nanobot/agent/tools/shell.py | A:改执行隔离的开发者 | S:新增后端需实现 _wrap_<name> 签名；绑挂路径必须规范化后再传给沙箱。
+schema.py[LG6M]: F:工具参数 JSON Schema 片段类型与转函数签名工具。 | R:code:nanobot/agent/tools/base.py | A:新增工具时声明参数的开发者 | S:schema 同时驱动模型可见描述与函数签名，改一处要保证两处一致。
+search.py[CE6L]: F:搜索工具：文件查找与内容 grep，含 glob 匹配、二进制识别与分页。 | R:code:nanobot/agent/tools/filesystem.py | A:改检索能力的开发者 | S:结果必须分页并给出提示；二进制文件要跳过而不是解码失败。
+self.py[AO7L]: F:my 工具：读取与调整 agent 自身运行时状态（迭代上限、上下文窗口、模型预设）。 | R:code:nanobot/agent/tools/runtime_control.py | A:要运行时自省的 agent 与开发者 | S:默认只读；写操作需配置开启，受保护参数即使开启也不可改。
+sessions.py[DD5M]: F:会话检索工具：按关键词搜索历史会话并读取指定会话片段。 | R:code:nanobot/webui/session_access.py | A:需要回溯历史的 agent | S:读出内容经可见性过滤，隐藏消息不会暴露给工具。
+shell.py[RE7L]: F:shell 执行工具：命令准备、工作区守卫、超时与进程回收、可选沙箱包装。 | R:code:nanobot/agent/tools/sandbox.py,code:nanobot/agent/tools/exec_session.py | A:改命令执行能力的开发者 | S:执行前必须过工作区守卫；进程退出后要 reap，避免僵尸与句柄泄漏。
+spawn.py[AW4S]: F:spawn 工具：创建后台子代理执行独立任务。 | R:code:nanobot/agent/subagent.py | A:改子代理能力的开发者 | S:子代理状态由 SubagentManager 持有，不要在工具层缓存。
+web.py[IN7L]: F:网页工具：web_search 与 web_fetch，含 URL 校验、SSRF 防护、DNS 钉扎与内容抽取。 | R:code:nanobot/security/network.py | A:改联网能力的开发者 | S:所有出站请求必经 security/network.py 校验并钉扎 DNS；唯一豁免是读取 ssrf_whitelist 的配置工具。
+
+===/<repository>/nanobot/channels/===
+__init__.py[CE1T]: F:渠道包命名空间，导出渠道基类与注册入口。 | R:code:nanobot/channels/base.py,code:nanobot/channels/registry.py | A:接入或新增渠道的开发者 | S:-
+_manifest.py[CC4T]: F:渠道声明式清单的小型构造器：字段、必填项与多选一约束。 | R:code:nanobot/channels/contracts.py | A:编写渠道 manifest 的开发者 | S:只做构造，不含校验语义；约束含义由 contracts 解释。
+_setup.py[CC4T]: F:为设置界面解析渠道自带的 setup 契约。 | R:code:nanobot/channels/contracts.py,code:nanobot/webui/settings_api.py | A:改渠道配置界面的开发者 | S:这里只解析 spec，不做权威校验。
+connect.py[IE3T]: F:渠道自管交互式连接流程共用的小契约：连接错误与查询参数取值。 | R:code:nanobot/channels/base.py | A:实现渠道扫码/授权连接流程的开发者 | S:连接流程归属各渠道包，此处只放共用最小契约。
+contracts.py[CC7L]: F:渠道运行时与管理界面共享的稳定契约：激活、字段规格、setup 与实例配置读写。 | R:code:nanobot/channels/plugin.py,code:nanobot/config/schema.py | A:改渠道管理面或配置读写的开发者 | S:实例配置的读写必须经此处的函数，直接改 dict 会绕过启用状态与默认值规则。
+plugin.py[CE5S]: F:渠道包的类型化元数据：包发现、加载与目标解析。 | R:code:nanobot/channels/contracts.py | A:新增渠道包的开发者 | S:渠道包必须可独立加载，插件元数据不得反向依赖 webui。
+registry.py[CE4S]: F:渠道发现与惰性加载：扫描渠道包、读取默认启用状态并按需导入运行时。 | R:code:nanobot/channels/plugin.py | A:改渠道发现逻辑的开发者 | S:运行时惰性导入，缺失可选依赖不应导致整体启动失败。
+validation.py[CQ6L]: F:渠道 setup 的尽力校验：声明式检查必填项与复合约束并生成可展示状态。 | R:code:nanobot/channels/contracts.py | A:改渠道配置校验的开发者 | S:此为启发式且非权威，不能替代渠道运行时的真实连接校验。
+base.py[IG6M]: F:渠道抽象基类：统一的收发、流式与生命周期接口，所有平台适配器的实现契约。 | R:code:nanobot/channels/contracts.py,code:nanobot/bus/events.py | A:新增或改造渠道适配器的开发者 | S:基类接口是跨渠道公共契约，改签名要同步所有渠道包与测试。
+manager.py[AW7L]: F:渠道管理器：按配置启动渠道、派发消息、投递出站与静态资源挂载。 | R:code:nanobot/channels/registry.py,code:nanobot/bus/queue.py | A:改渠道生命周期与消息派发的开发者 | S:启动失败要逐渠道隔离，单渠道异常不得拖垮 gatewy 其余渠道。
+
+===/<repository>/nanobot/channels/feishu/===
+__init__.py[CE1T]: F:飞书/Lark 渠道包命名空间。 | R:- | A:该渠道包的导入入口 | S:-
+manifest.py[CC8T]: F:飞书/Lark 的管理契约：声明 setup 字段、必填项、官方申请入口、可选依赖与 runtime 入口。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/_manifest.py | A:配置 飞书/Lark 的用户与设置界面 | S:字段清单为 appId、appSecret、domain、groupPolicy、allowFrom 与 topicIsolation；官方入口与依赖声明以此为准，改字段要同步 locales 与 webui/index。
+runtime.py[IN8L]: F:飞书/Lark 渠道运行时：经 lark-oapi SDK 建立 WebSocket 长连接，入站事件与出站卡片消息都走长连接，不依赖公网回调，负责入站消息归一化、出站投递与流式分片。 | R:code:nanobot/channels/base.py,code:nanobot/bus/events.py | A:维护 飞书/Lark 适配器的开发者 | S:卡片按表格元素分组且每组最多 1 个表格；文本与富文本分别按 200/2000 字符截断，超出会被切分而不是报错。
+validation.py[CC4T]: F:飞书/Lark 自管的 setup 校验，供设置界面提示缺项。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/validation.py | A:改 飞书/Lark 配置校验的开发者 | S:该校验属启发式提示，不替代运行时的真实连接校验。
+connect.py[EU5M]: F:飞书/Lark 的短时交互式连接会话：创建、查询与清理扫码/授权流程状态。 | R:code:nanobot/channels/connect.py,code:nanobot/webui/settings_api.py | A:改 飞书/Lark 扫码连接流程的开发者 | S:连接会话是短时且内存态的，进程重启即失效，不能当作持久登录态。
+config.py[CC5T]: F:无外部依赖的飞书配置模型，供管理面与运行时共用。 | R:code:nanobot/channels/feishu/manifest.py | A:读飞书配置的代码 | S:刻意不依赖 lark-oapi，保证设置界面在未装 SDK 时也能加载。
+instances.py[CC5M]: F:飞书多实例配置的读写：实例 ID 校验、规范化与 upsert。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/feishu/config.py | A:配置多飞书应用的开发者与用户 | S:实例 ID 需经 validate_instance_id 校验；appId 与 domain 组合是实例身份键，改其一等于换实例。
+websocket.py[IN5S]: F:飞书 WebSocket 运行时的共享封装：单例 runner 与客户端生命周期。 | R:code:nanobot/channels/feishu/runtime.py | A:改飞书长连接管理的开发者 | S:runner 是进程内单例，多渠道实例共享同一连接管理。
+
+===/<repository>/nanobot/channels/weixin/===
+__init__.py[CE1T]: F:个人微信 渠道包命名空间。 | R:- | A:该渠道包的导入入口 | S:-
+manifest.py[CC8T]: F:个人微信 的管理契约：声明 setup 字段、必填项、官方申请入口、可选依赖与 runtime 入口。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/_manifest.py | A:配置 个人微信 的用户与设置界面 | S:字段清单为 token、allowFrom、baseUrl、cdnBaseUrl、routeTag、stateDir 与流式回复相关开关；官方入口与依赖声明以此为准，改字段要同步 locales 与 webui/index。
+runtime.py[IN8L]: F:个人微信 渠道运行时：基于 ilinkai.weixin.qq.com 的 HTTP 长轮询收发，登录态由扫码产生并持久化，负责入站消息归一化、出站投递与流式分片。 | R:code:nanobot/channels/base.py,code:nanobot/bus/events.py | A:维护 个人微信 适配器的开发者 | S:单条消息上限 1800 字符；连续失败 3 次、二维码刷新 3 次即停止；延迟消息每会话最多 3 条。
+validation.py[CC4T]: F:个人微信 自管的 setup 校验，供设置界面提示缺项。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/validation.py | A:改 个人微信 配置校验的开发者 | S:该校验属启发式提示，不替代运行时的真实连接校验。
+connect.py[EU5M]: F:个人微信 的短时交互式连接会话：创建、查询与清理扫码/授权流程状态。 | R:code:nanobot/channels/connect.py,code:nanobot/webui/settings_api.py | A:改 个人微信 扫码连接流程的开发者 | S:连接会话是短时且内存态的，进程重启即失效，不能当作持久登录态。
+state.py[DD4T]: F:微信登录态的本地存在性检测。 | R:code:nanobot/channels/weixin/runtime.py | A:判断微信是否需要重新扫码的代码 | S:只检测存在性，不代表登录态仍有效。
+
+===/<repository>/nanobot/channels/whatsapp/===
+__init__.py[CE1T]: F:WhatsApp 渠道包命名空间。 | R:- | A:该渠道包的导入入口 | S:-
+manifest.py[CC6T]: F:WhatsApp 的管理契约：声明 setup 字段、必填项、官方申请入口、可选依赖与 runtime 入口。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/_manifest.py | A:配置 WhatsApp 的用户与设置界面 | S:字段清单为 allowFrom、groupPolicy 与 databasePath；官方入口与依赖声明以此为准，改字段要同步 locales 与 webui/index。
+runtime.py[IN6L]: F:WhatsApp 渠道运行时：经 neonize 走 WhatsApp Web 多设备协议，二维码配对后登录态落盘到 databasePath，负责入站消息归一化、出站投递与流式分片。 | R:code:nanobot/channels/base.py,code:nanobot/bus/events.py | A:维护 WhatsApp 适配器的开发者 | S:远程媒体有 32MB 上限且最多跟随 5 次重定向，声明大小超限会直接拒绝。
+validation.py[CC4T]: F:WhatsApp 自管的 setup 校验，供设置界面提示缺项。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/validation.py | A:改 WhatsApp 配置校验的开发者 | S:该校验属启发式提示，不替代运行时的真实连接校验。
+state.py[DD4T]: F:WhatsApp 登录态的本地存在性检测。 | R:code:nanobot/channels/whatsapp/runtime.py | A:判断 WhatsApp 是否需要重新配对的代码 | S:只检测存在性，不代表会话仍有效。
+
+===/<repository>/nanobot/channels/discord/===
+__init__.py[CE1T]: F:Discord 渠道包命名空间。 | R:- | A:该渠道包的导入入口 | S:-
+manifest.py[CC7T]: F:Discord 的管理契约：声明 setup 字段、必填项、官方申请入口、可选依赖与 runtime 入口。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/_manifest.py | A:配置 Discord 的用户与设置界面 | S:字段清单为 token、allowFrom、allowChannels 与 groupPolicy；官方入口与依赖声明以此为准，改字段要同步 locales 与 webui/index。
+runtime.py[IN7L]: F:Discord 渠道运行时：使用 discord.py 连接网关收发消息，负责入站消息归一化、出站投递与流式分片。 | R:code:nanobot/channels/base.py,code:nanobot/bus/events.py | A:维护 Discord 适配器的开发者 | S:消息超 2000 字符必须分片发送；单附件上限 20MB，超限静默跳过而不是报错。
+validation.py[CC4T]: F:Discord 自管的 setup 校验，供设置界面提示缺项。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/validation.py | A:改 Discord 配置校验的开发者 | S:该校验属启发式提示，不替代运行时的真实连接校验。
+
+===/<repository>/nanobot/channels/email/===
+__init__.py[CE1T]: F:电子邮件 渠道包命名空间。 | R:- | A:该渠道包的导入入口 | S:-
+manifest.py[CC6T]: F:电子邮件 的管理契约：声明 setup 字段、必填项、官方申请入口、可选依赖与 runtime 入口。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/_manifest.py | A:配置 电子邮件 的用户与设置界面 | S:字段清单为 consentGranted、IMAP/SMTP 主机与凭据、fromAddress、轮询间隔与 allowFrom；官方入口与依赖声明以此为准，改字段要同步 locales 与 webui/index。
+runtime.py[IN6L]: F:电子邮件 渠道运行时：IMAP 轮询收信、SMTP 发信回复，不依赖 webhook，负责入站消息归一化、出站投递与流式分片。 | R:code:nanobot/channels/base.py,code:nanobot/bus/events.py | A:维护 电子邮件 适配器的开发者 | S:必须先显式同意见才启用；正文按 12000 字符截断，附件单个 2MB、每封最多 5 个；已处理 UID 集合上限 10 万。
+validation.py[CC4T]: F:电子邮件 自管的 setup 校验，供设置界面提示缺项。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/validation.py | A:改 电子邮件 配置校验的开发者 | S:该校验属启发式提示，不替代运行时的真实连接校验。
+
+===/<repository>/nanobot/channels/matrix/===
+__init__.py[CE1T]: F:Matrix 渠道包命名空间。 | R:- | A:该渠道包的导入入口 | S:-
+manifest.py[CC7T]: F:Matrix 的管理契约：声明 setup 字段、必填项、官方申请入口、可选依赖与 runtime 入口。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/_manifest.py | A:配置 Matrix 的用户与设置界面 | S:字段清单为 homeserver、userId、password 或 accessToken、deviceId、groupPolicy 与 allowFrom；官方入口与依赖声明以此为准，改字段要同步 locales 与 webui/index。
+runtime.py[IN7L]: F:Matrix 渠道运行时：经 matrix-nio 做 inbound sync 与出站消息/媒体投递，负责入站消息归一化、出站投递与流式分片。 | R:code:nanobot/channels/base.py,code:nanobot/bus/events.py | A:维护 Matrix 适配器的开发者 | S:媒体下载上限 20MB 且并发限制为 2；房间邀请是一次性的，消费后不会重投，回调必须自行落库。
+validation.py[CC4T]: F:Matrix 自管的 setup 校验，供设置界面提示缺项。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/validation.py | A:改 Matrix 配置校验的开发者 | S:该校验属启发式提示，不替代运行时的真实连接校验。
+
+===/<repository>/nanobot/channels/slack/===
+__init__.py[CE1T]: F:Slack 渠道包命名空间。 | R:- | A:该渠道包的导入入口 | S:-
+manifest.py[CC7T]: F:Slack 的管理契约：声明 setup 字段、必填项、官方申请入口、可选依赖与 runtime 入口。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/_manifest.py | A:配置 Slack 的用户与设置界面 | S:字段清单为 appToken、botToken 与 groupPolicy；官方入口与依赖声明以此为准，改字段要同步 locales 与 webui/index。
+runtime.py[IN7L]: F:Slack 渠道运行时：使用 Socket Mode，出站走 Web API，负责入站消息归一化、出站投递与流式分片。 | R:code:nanobot/channels/base.py,code:nanobot/bus/events.py | A:维护 Slack 适配器的开发者 | S:单条消息按 39000 字符分片；会话键在消息处于线程时按线程隔离，不按频道。
+validation.py[CC4T]: F:Slack 自管的 setup 校验，供设置界面提示缺项。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/validation.py | A:改 Slack 配置校验的开发者 | S:该校验属启发式提示，不替代运行时的真实连接校验。
+
+===/<repository>/nanobot/channels/telegram/===
+__init__.py[CE1T]: F:Telegram 渠道包命名空间。 | R:- | A:该渠道包的导入入口 | S:-
+manifest.py[CC8T]: F:Telegram 的管理契约：声明 setup 字段、必填项、官方申请入口、可选依赖与 runtime 入口。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/_manifest.py | A:配置 Telegram 的用户与设置界面 | S:字段清单为 BotFather 令牌、proxy、allowFrom 与 groupPolicy；官方入口与依赖声明以此为准，改字段要同步 locales 与 webui/index。
+runtime.py[IN8L]: F:Telegram 渠道运行时：使用 python-telegram-bot 长轮询或 webhook 收发，负责入站消息归一化、出站投递与流式分片。 | R:code:nanobot/channels/base.py,code:nanobot/bus/events.py | A:维护 Telegram 适配器的开发者 | S:消息按 4000 字符分片、HTML 上限 4096；分片边界要保证最终消息不溢出。
+validation.py[CC4S]: F:Telegram 自管的 setup 校验，供设置界面提示缺项。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/validation.py | A:改 Telegram 配置校验的开发者 | S:该校验属启发式提示，不替代运行时的真实连接校验。
+
+===/<repository>/nanobot/channels/websocket/===
+__init__.py[CE1T]: F:WebSocket 渠道包命名空间。 | R:- | A:该渠道包的导入入口 | S:-
+manifest.py[CC8T]: F:WebSocket 的管理契约：声明 setup 字段、必填项、官方申请入口、可选依赖与 runtime 入口。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/_manifest.py | A:配置 WebSocket 的用户与设置界面 | S:字段清单为 可信代理鉴权、max_message_bytes 与可选 unix socket 路径；官方入口与依赖声明以此为准，改字段要同步 locales 与 webui/index。
+runtime.py[IN8L]: F:WebSocket 渠道运行时：nanobot 自身作为 WebSocket 服务器，WebUI 与 API 客户端都连到这条通道，负责入站消息归一化、出站投递与流式分片。 | R:code:nanobot/channels/base.py,code:nanobot/bus/events.py | A:维护 WebSocket 适配器的开发者 | S:max_message_bytes 取值区间 1024 至 41943040，默认 37748736；可信代理 CIDR 不得覆盖全部 IPv4-mapped 地址；socket 路径不得含 NUL。
+validation.py[CC4T]: F:WebSocket 自管的 setup 校验，供设置界面提示缺项。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/validation.py | A:改 WebSocket 配置校验的开发者 | S:该校验属启发式提示，不替代运行时的真实连接校验。
+
+===/<repository>/nanobot/channels/dingtalk/===
+__init__.py[CE1T]: F:钉钉 渠道包命名空间。 | R:- | A:该渠道包的导入入口 | S:-
+manifest.py[CC6T]: F:钉钉 的管理契约：声明 setup 字段、必填项、官方申请入口、可选依赖与 runtime 入口。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/_manifest.py | A:配置 钉钉 的用户与设置界面 | S:字段清单为 clientId、clientSecret 与 allowFrom；官方入口与依赖声明以此为准，改字段要同步 locales 与 webui/index。
+runtime.py[IN6L]: F:钉钉 渠道运行时：经 dingtalk-stream 长连接接收回调，负责入站消息归一化、出站投递与流式分片。 | R:code:nanobot/channels/base.py,code:nanobot/bus/events.py | A:维护 钉钉 适配器的开发者 | S:远程媒体 20MB 上限、最多 3 次重定向；发送者名被截断到 80 字符。
+
+===/<repository>/nanobot/channels/mattermost/===
+__init__.py[CE1T]: F:Mattermost 渠道包命名空间。 | R:- | A:该渠道包的导入入口 | S:-
+manifest.py[CC6T]: F:Mattermost 的管理契约：声明 setup 字段、必填项、官方申请入口、可选依赖与 runtime 入口。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/_manifest.py | A:配置 Mattermost 的用户与设置界面 | S:字段清单为 serverUrl、token、teamId、groupPolicy（含线程内策略）与 allowFrom；官方入口与依赖声明以此为准，改字段要同步 locales 与 webui/index。
+runtime.py[IN6L]: F:Mattermost 渠道运行时：WebSocket 收事件，REST API 发送，负责入站消息归一化、出站投递与流式分片。 | R:code:nanobot/channels/base.py,code:nanobot/bus/events.py | A:维护 Mattermost 适配器的开发者 | S:消息按 16383 字符分片；WebSocket 重连退避上限 30 秒。
+
+===/<repository>/nanobot/channels/msteams/===
+__init__.py[CE1T]: F:Microsoft Teams 渠道包命名空间。 | R:- | A:该渠道包的导入入口 | S:-
+manifest.py[CC5T]: F:Microsoft Teams 的管理契约：声明 setup 字段、必填项、官方申请入口、可选依赖与 runtime 入口。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/_manifest.py | A:配置 Microsoft Teams 的用户与设置界面 | S:字段清单为 appId、appPassword、tenantId、webhook path 与 allowFrom；官方入口与依赖声明以此为准，改字段要同步 locales 与 webui/index。
+runtime.py[IN5L]: F:Microsoft Teams 渠道运行时：MVP 形态：内置一个极简 HTTP webhook 服务器接收 Teams 回调，负责入站消息归一化、出站投递与流式分片。 | R:code:nanobot/channels/base.py,code:nanobot/bus/events.py | A:维护 Microsoft Teams 适配器的开发者 | S:这是 MVP，只覆盖 webhook 接收与基础回复，不要把完整 Graph 能力当作已支持。
+
+===/<repository>/nanobot/channels/napcat/===
+__init__.py[CE1T]: F:NapCat/QQ 渠道包命名空间。 | R:- | A:该渠道包的导入入口 | S:-
+manifest.py[CC6T]: F:NapCat/QQ 的管理契约：声明 setup 字段、必填项、官方申请入口、可选依赖与 runtime 入口。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/_manifest.py | A:配置 NapCat/QQ 的用户与设置界面 | S:字段清单为 wsUrl、accessToken、allowFrom 与 groupPolicy；官方入口与依赖声明以此为准，改字段要同步 locales 与 webui/index。
+runtime.py[IN6L]: F:NapCat/QQ 渠道运行时：NapCat（OneBot v11）经 WebSocket 收发，负责入站消息归一化、出站投递与流式分片。 | R:code:nanobot/channels/base.py,code:nanobot/bus/events.py | A:维护 NapCat/QQ 适配器的开发者 | S:wsUrl 为必填；图片按 max_image_bytes 校验，默认 20MB，超限拒绝且日志记录 url。
+
+===/<repository>/nanobot/channels/qq/===
+__init__.py[CE1T]: F:QQ 渠道包命名空间。 | R:- | A:该渠道包的导入入口 | S:-
+manifest.py[CC6T]: F:QQ 的管理契约：声明 setup 字段、必填项、官方申请入口、可选依赖与 runtime 入口。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/_manifest.py | A:配置 QQ 的用户与设置界面 | S:字段清单为 appId、secret、allowFrom 与 msgFormat；官方入口与依赖声明以此为准，改字段要同步 locales 与 webui/index。
+runtime.py[IN6L]: F:QQ 渠道运行时：使用 botpy SDK 接入官方 QQ 机器人，负责入站消息归一化、出站投递与流式分片。 | R:code:nanobot/channels/base.py,code:nanobot/bus/events.py | A:维护 QQ 适配器的开发者 | S:富媒体下载默认 200MB 安全上限；失败重试指数退避上限 300 秒。
+
+===/<repository>/nanobot/channels/signal/===
+__init__.py[CE1T]: F:Signal 渠道包命名空间。 | R:- | A:该渠道包的导入入口 | S:-
+manifest.py[CC6T]: F:Signal 的管理契约：声明 setup 字段、必填项、官方申请入口、可选依赖与 runtime 入口。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/_manifest.py | A:配置 Signal 的用户与设置界面 | S:字段清单为 phoneNumber（必填）、daemonHost 与 daemonPort；官方入口与依赖声明以此为准，改字段要同步 locales 与 webui/index。
+runtime.py[IN6L]: F:Signal 渠道运行时：经 signal-cli 守护进程的 JSON-RPC 接口收发，负责入站消息归一化、出站投递与流式分片。 | R:code:nanobot/channels/base.py,code:nanobot/bus/events.py | A:维护 Signal 适配器的开发者 | S:单条消息按 64000 字符分片；守护进程重连退避上限 30 秒。
+
+===/<repository>/nanobot/channels/wecom/===
+__init__.py[CE1T]: F:企业微信 渠道包命名空间。 | R:- | A:该渠道包的导入入口 | S:-
+manifest.py[CC6T]: F:企业微信 的管理契约：声明 setup 字段、必填项、官方申请入口、可选依赖与 runtime 入口。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/_manifest.py | A:配置 企业微信 的用户与设置界面 | S:字段清单为 botId、secret 与 allowFrom；官方入口与依赖声明以此为准，改字段要同步 locales 与 webui/index。
+runtime.py[IN6L]: F:企业微信 渠道运行时：经 wecom_aibot_sdk 接入智能机器人，负责入站消息归一化、出站投递与流式分片。 | R:code:nanobot/channels/base.py,code:nanobot/bus/events.py | A:维护 企业微信 适配器的开发者 | S:上传上限 200MB，超限直接报错；默认重连次数为 -1 即无限重连。
+
+===/<repository>/nanobot/channels/mochat/===
+__init__.py[CE1T]: F:Mochat 渠道包命名空间。 | R:- | A:该渠道包的导入入口 | S:-
+manifest.py[CC5T]: F:Mochat 的管理契约：声明 setup 字段、必填项、官方申请入口、可选依赖与 runtime 入口。 | R:code:nanobot/channels/contracts.py,code:nanobot/channels/_manifest.py | A:配置 Mochat 的用户与设置界面 | S:字段清单为 baseUrl、clawToken（必填）、agentUserId、sessions、panels 与 allowFrom；官方入口与依赖声明以此为准，改字段要同步 locales 与 webui/index。
+runtime.py[IN5L]: F:Mochat 渠道运行时：Socket.IO 加 HTTP 收发，支持多会话与面板，负责入站消息归一化、出站投递与流式分片。 | R:code:nanobot/channels/base.py,code:nanobot/bus/events.py | A:维护 Mochat 适配器的开发者 | S:已见消息 ID 队列上限 2000；该渠道没有 webui 目录，设置界面按通用表单渲染。
+
+===/<repository>/nanobot/channels/feishu/webui/===
+FeishuAssistantsPanel.tsx[EU4S]: F:飞书多助手面板：列出已配置实例并支持重置。 | R:code:nanobot/channels/feishu/manifest.py,code:nanobot/channels/feishu/runtime.py | A:改 飞书/Lark 设置界面的开发者 | S:界面只做展示与取值，校验与落地在渠道包的 manifest/contracts。
+FeishuConnectFlow.tsx[EU3T]: F:飞书扫码连接流程，复用通用二维码连接组件。 | R:code:nanobot/channels/feishu/manifest.py,code:nanobot/channels/feishu/runtime.py | A:改 飞书/Lark 设置界面的开发者 | S:界面只做展示与取值，校验与落地在渠道包的 manifest/contracts。
+index.tsx[EU5T]: F:飞书/Lark 的 WebUI 贡献：展示名、配色、安装模式与字段绑定。 | R:code:nanobot/channels/feishu/manifest.py | A:改 飞书/Lark 设置界面的开发者 | S:字段 key 必须与 manifest 的 setup 字段一一对应，改名会导致设置界面取不到值。
+
+===/<repository>/nanobot/channels/weixin/webui/===
+WeixinPanel.tsx[EU5L]: F:微信设置面板：主字段与高级字段分组、状态展示与实例管理。 | R:code:nanobot/channels/weixin/manifest.py,code:nanobot/channels/weixin/runtime.py | A:改 个人微信 设置界面的开发者 | S:界面只做展示与取值，校验与落地在渠道包的 manifest/contracts。
+WeixinConnectFlow.tsx[EU4S]: F:微信扫码连接流程与授权过期提示。 | R:code:nanobot/channels/weixin/manifest.py,code:nanobot/channels/weixin/runtime.py | A:改 个人微信 设置界面的开发者 | S:界面只做展示与取值，校验与落地在渠道包的 manifest/contracts。
+index.tsx[EU5T]: F:个人微信 的 WebUI 贡献：展示名、配色、安装模式与字段绑定。 | R:code:nanobot/channels/weixin/manifest.py | A:改 个人微信 设置界面的开发者 | S:字段 key 必须与 manifest 的 setup 字段一一对应，改名会导致设置界面取不到值。
+
+===/<repository>/nanobot/channels/whatsapp/webui/===
+index.ts[EU5T]: F:WhatsApp 的 WebUI 贡献：展示名、配色、安装模式与字段绑定。 | R:code:nanobot/channels/whatsapp/manifest.py | A:改 WhatsApp 设置界面的开发者 | S:字段 key 必须与 manifest 的 setup 字段一一对应，改名会导致设置界面取不到值。
+
+===/<repository>/nanobot/channels/discord/webui/===
+index.ts[EU5T]: F:Discord 的 WebUI 贡献：展示名、配色、安装模式与字段绑定。 | R:code:nanobot/channels/discord/manifest.py | A:改 Discord 设置界面的开发者 | S:字段 key 必须与 manifest 的 setup 字段一一对应，改名会导致设置界面取不到值。
+
+===/<repository>/nanobot/channels/email/webui/===
+index.ts[EU5T]: F:电子邮件 的 WebUI 贡献：展示名、配色、安装模式与字段绑定。 | R:code:nanobot/channels/email/manifest.py | A:改 电子邮件 设置界面的开发者 | S:字段 key 必须与 manifest 的 setup 字段一一对应，改名会导致设置界面取不到值。
+
+===/<repository>/nanobot/channels/matrix/webui/===
+index.ts[EU5T]: F:Matrix 的 WebUI 贡献：展示名、配色、安装模式与字段绑定。 | R:code:nanobot/channels/matrix/manifest.py | A:改 Matrix 设置界面的开发者 | S:字段 key 必须与 manifest 的 setup 字段一一对应，改名会导致设置界面取不到值。
+
+===/<repository>/nanobot/channels/slack/webui/===
+index.ts[EU5T]: F:Slack 的 WebUI 贡献：展示名、配色、安装模式与字段绑定。 | R:code:nanobot/channels/slack/manifest.py | A:改 Slack 设置界面的开发者 | S:字段 key 必须与 manifest 的 setup 字段一一对应，改名会导致设置界面取不到值。
+
+===/<repository>/nanobot/channels/telegram/webui/===
+index.ts[EU5T]: F:Telegram 的 WebUI 贡献：展示名、配色、安装模式与字段绑定。 | R:code:nanobot/channels/telegram/manifest.py | A:改 Telegram 设置界面的开发者 | S:字段 key 必须与 manifest 的 setup 字段一一对应，改名会导致设置界面取不到值。
+
+===/<repository>/nanobot/channels/websocket/webui/===
+index.ts[EU5T]: F:WebSocket 的 WebUI 贡献：展示名、配色、安装模式与字段绑定。 | R:code:nanobot/channels/websocket/manifest.py | A:改 WebSocket 设置界面的开发者 | S:字段 key 必须与 manifest 的 setup 字段一一对应，改名会导致设置界面取不到值。
+
+===/<repository>/nanobot/channels/dingtalk/webui/===
+index.ts[EU5T]: F:钉钉 的 WebUI 贡献：展示名、配色、安装模式与字段绑定。 | R:code:nanobot/channels/dingtalk/manifest.py | A:改 钉钉 设置界面的开发者 | S:字段 key 必须与 manifest 的 setup 字段一一对应，改名会导致设置界面取不到值。
+
+===/<repository>/nanobot/channels/mattermost/webui/===
+index.ts[EU5T]: F:Mattermost 的 WebUI 贡献：展示名、配色、安装模式与字段绑定。 | R:code:nanobot/channels/mattermost/manifest.py | A:改 Mattermost 设置界面的开发者 | S:字段 key 必须与 manifest 的 setup 字段一一对应，改名会导致设置界面取不到值。
+
+===/<repository>/nanobot/channels/msteams/webui/===
+index.ts[EU5T]: F:Microsoft Teams 的 WebUI 贡献：展示名、配色、安装模式与字段绑定。 | R:code:nanobot/channels/msteams/manifest.py | A:改 Microsoft Teams 设置界面的开发者 | S:字段 key 必须与 manifest 的 setup 字段一一对应，改名会导致设置界面取不到值。
+
+===/<repository>/nanobot/channels/napcat/webui/===
+index.ts[EU5T]: F:NapCat/QQ 的 WebUI 贡献：展示名、配色、安装模式与字段绑定。 | R:code:nanobot/channels/napcat/manifest.py | A:改 NapCat/QQ 设置界面的开发者 | S:字段 key 必须与 manifest 的 setup 字段一一对应，改名会导致设置界面取不到值。
+
+===/<repository>/nanobot/channels/qq/webui/===
+index.ts[EU5T]: F:QQ 的 WebUI 贡献：展示名、配色、安装模式与字段绑定。 | R:code:nanobot/channels/qq/manifest.py | A:改 QQ 设置界面的开发者 | S:字段 key 必须与 manifest 的 setup 字段一一对应，改名会导致设置界面取不到值。
+
+===/<repository>/nanobot/channels/signal/webui/===
+index.ts[EU5T]: F:Signal 的 WebUI 贡献：展示名、配色、安装模式与字段绑定。 | R:code:nanobot/channels/signal/manifest.py | A:改 Signal 设置界面的开发者 | S:字段 key 必须与 manifest 的 setup 字段一一对应，改名会导致设置界面取不到值。
+
+===/<repository>/nanobot/channels/wecom/webui/===
+index.ts[EU5T]: F:企业微信 的 WebUI 贡献：展示名、配色、安装模式与字段绑定。 | R:code:nanobot/channels/wecom/manifest.py | A:改 企业微信 设置界面的开发者 | S:字段 key 必须与 manifest 的 setup 字段一一对应，改名会导致设置界面取不到值。
+
+===/<repository>/nanobot/channels/discord/webui/locales/===
+en.json[CL2T]: F:Discord设置界面英文文案，19键 | R:code:nanobot/channels/discord/webui/index.ts,code:nanobot/channels/discord/webui/locales/en.json | A:Discord多语言文案维护 | S:键集合以 en.json 为准，只改文案
+es.json[CL2T]: F:Discord设置界面西语文案，19键 | R:code:nanobot/channels/discord/webui/index.ts,code:nanobot/channels/discord/webui/locales/en.json | A:Discord多语言文案维护 | S:键集合以 en.json 为准，只改文案
+fr.json[CL2T]: F:Discord设置界面法语文案，19键 | R:code:nanobot/channels/discord/webui/index.ts,code:nanobot/channels/discord/webui/locales/en.json | A:Discord多语言文案维护 | S:键集合以 en.json 为准，只改文案
+id.json[CL2T]: F:Discord设置界面印尼语文案，19键 | R:code:nanobot/channels/discord/webui/index.ts,code:nanobot/channels/discord/webui/locales/en.json | A:Discord多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ja.json[CL2T]: F:Discord设置界面日语文案，19键 | R:code:nanobot/channels/discord/webui/index.ts,code:nanobot/channels/discord/webui/locales/en.json | A:Discord多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ko.json[CL2T]: F:Discord设置界面韩语文案，19键 | R:code:nanobot/channels/discord/webui/index.ts,code:nanobot/channels/discord/webui/locales/en.json | A:Discord多语言文案维护 | S:键集合以 en.json 为准，只改文案
+pt-BR.json[CL2T]: F:Discord设置界面葡语(巴西)文案，19键 | R:code:nanobot/channels/discord/webui/index.ts,code:nanobot/channels/discord/webui/locales/en.json | A:Discord多语言文案维护 | S:键集合以 en.json 为准，只改文案
+vi.json[CL2T]: F:Discord设置界面越南语文案，19键 | R:code:nanobot/channels/discord/webui/index.ts,code:nanobot/channels/discord/webui/locales/en.json | A:Discord多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-CN.json[CL2T]: F:Discord设置界面简中文案，19键 | R:code:nanobot/channels/discord/webui/index.ts,code:nanobot/channels/discord/webui/locales/en.json | A:Discord多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-TW.json[CL2T]: F:Discord设置界面繁中文案，19键 | R:code:nanobot/channels/discord/webui/index.ts,code:nanobot/channels/discord/webui/locales/en.json | A:Discord多语言文案维护 | S:键集合以 en.json 为准，只改文案
+
+===/<repository>/nanobot/channels/email/webui/locales/===
+en.json[CL2T]: F:邮件设置界面英文文案，46键 | R:code:nanobot/channels/email/webui/index.ts,code:nanobot/channels/email/webui/locales/en.json | A:邮件多语言文案维护 | S:键集合以 en.json 为准，只改文案
+es.json[CL2T]: F:邮件设置界面西语文案，46键 | R:code:nanobot/channels/email/webui/index.ts,code:nanobot/channels/email/webui/locales/en.json | A:邮件多语言文案维护 | S:键集合以 en.json 为准，只改文案
+fr.json[CL2T]: F:邮件设置界面法语文案，46键 | R:code:nanobot/channels/email/webui/index.ts,code:nanobot/channels/email/webui/locales/en.json | A:邮件多语言文案维护 | S:键集合以 en.json 为准，只改文案
+id.json[CL2T]: F:邮件设置界面印尼语文案，46键 | R:code:nanobot/channels/email/webui/index.ts,code:nanobot/channels/email/webui/locales/en.json | A:邮件多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ja.json[CL2T]: F:邮件设置界面日语文案，46键 | R:code:nanobot/channels/email/webui/index.ts,code:nanobot/channels/email/webui/locales/en.json | A:邮件多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ko.json[CL2T]: F:邮件设置界面韩语文案，46键 | R:code:nanobot/channels/email/webui/index.ts,code:nanobot/channels/email/webui/locales/en.json | A:邮件多语言文案维护 | S:键集合以 en.json 为准，只改文案
+pt-BR.json[CL2T]: F:邮件设置界面葡语(巴西)文案，46键 | R:code:nanobot/channels/email/webui/index.ts,code:nanobot/channels/email/webui/locales/en.json | A:邮件多语言文案维护 | S:键集合以 en.json 为准，只改文案
+vi.json[CL2T]: F:邮件设置界面越南语文案，46键 | R:code:nanobot/channels/email/webui/index.ts,code:nanobot/channels/email/webui/locales/en.json | A:邮件多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-CN.json[CL2T]: F:邮件设置界面简中文案，46键 | R:code:nanobot/channels/email/webui/index.ts,code:nanobot/channels/email/webui/locales/en.json | A:邮件多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-TW.json[CL2T]: F:邮件设置界面繁中文案，46键 | R:code:nanobot/channels/email/webui/index.ts,code:nanobot/channels/email/webui/locales/en.json | A:邮件多语言文案维护 | S:键集合以 en.json 为准，只改文案
+
+===/<repository>/nanobot/channels/matrix/webui/locales/===
+en.json[CL2T]: F:Matrix设置界面英文文案，24键 | R:code:nanobot/channels/matrix/webui/index.ts,code:nanobot/channels/matrix/webui/locales/en.json | A:Matrix多语言文案维护 | S:键集合以 en.json 为准，只改文案
+es.json[CL2T]: F:Matrix设置界面西语文案，24键 | R:code:nanobot/channels/matrix/webui/index.ts,code:nanobot/channels/matrix/webui/locales/en.json | A:Matrix多语言文案维护 | S:键集合以 en.json 为准，只改文案
+fr.json[CL2T]: F:Matrix设置界面法语文案，24键 | R:code:nanobot/channels/matrix/webui/index.ts,code:nanobot/channels/matrix/webui/locales/en.json | A:Matrix多语言文案维护 | S:键集合以 en.json 为准，只改文案
+id.json[CL2T]: F:Matrix设置界面印尼语文案，24键 | R:code:nanobot/channels/matrix/webui/index.ts,code:nanobot/channels/matrix/webui/locales/en.json | A:Matrix多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ja.json[CL2T]: F:Matrix设置界面日语文案，24键 | R:code:nanobot/channels/matrix/webui/index.ts,code:nanobot/channels/matrix/webui/locales/en.json | A:Matrix多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ko.json[CL2T]: F:Matrix设置界面韩语文案，24键 | R:code:nanobot/channels/matrix/webui/index.ts,code:nanobot/channels/matrix/webui/locales/en.json | A:Matrix多语言文案维护 | S:键集合以 en.json 为准，只改文案
+pt-BR.json[CL2T]: F:Matrix设置界面葡语(巴西)文案，24键 | R:code:nanobot/channels/matrix/webui/index.ts,code:nanobot/channels/matrix/webui/locales/en.json | A:Matrix多语言文案维护 | S:键集合以 en.json 为准，只改文案
+vi.json[CL2T]: F:Matrix设置界面越南语文案，24键 | R:code:nanobot/channels/matrix/webui/index.ts,code:nanobot/channels/matrix/webui/locales/en.json | A:Matrix多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-CN.json[CL2T]: F:Matrix设置界面简中文案，24键 | R:code:nanobot/channels/matrix/webui/index.ts,code:nanobot/channels/matrix/webui/locales/en.json | A:Matrix多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-TW.json[CL2T]: F:Matrix设置界面繁中文案，24键 | R:code:nanobot/channels/matrix/webui/index.ts,code:nanobot/channels/matrix/webui/locales/en.json | A:Matrix多语言文案维护 | S:键集合以 en.json 为准，只改文案
+
+===/<repository>/nanobot/channels/mattermost/webui/locales/===
+en.json[CL2T]: F:Mattermost设置界面英文文案，25键 | R:code:nanobot/channels/mattermost/webui/index.ts,code:nanobot/channels/mattermost/webui/locales/en.json | A:Mattermost多语言文案维护 | S:键集合以 en.json 为准，只改文案
+es.json[CL2T]: F:Mattermost设置界面西语文案，25键 | R:code:nanobot/channels/mattermost/webui/index.ts,code:nanobot/channels/mattermost/webui/locales/en.json | A:Mattermost多语言文案维护 | S:键集合以 en.json 为准，只改文案
+fr.json[CL2T]: F:Mattermost设置界面法语文案，25键 | R:code:nanobot/channels/mattermost/webui/index.ts,code:nanobot/channels/mattermost/webui/locales/en.json | A:Mattermost多语言文案维护 | S:键集合以 en.json 为准，只改文案
+id.json[CL2T]: F:Mattermost设置界面印尼语文案，25键 | R:code:nanobot/channels/mattermost/webui/index.ts,code:nanobot/channels/mattermost/webui/locales/en.json | A:Mattermost多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ja.json[CL2T]: F:Mattermost设置界面日语文案，25键 | R:code:nanobot/channels/mattermost/webui/index.ts,code:nanobot/channels/mattermost/webui/locales/en.json | A:Mattermost多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ko.json[CL2T]: F:Mattermost设置界面韩语文案，25键 | R:code:nanobot/channels/mattermost/webui/index.ts,code:nanobot/channels/mattermost/webui/locales/en.json | A:Mattermost多语言文案维护 | S:键集合以 en.json 为准，只改文案
+pt-BR.json[CL2T]: F:Mattermost设置界面葡语(巴西)文案，25键 | R:code:nanobot/channels/mattermost/webui/index.ts,code:nanobot/channels/mattermost/webui/locales/en.json | A:Mattermost多语言文案维护 | S:键集合以 en.json 为准，只改文案
+vi.json[CL2T]: F:Mattermost设置界面越南语文案，25键 | R:code:nanobot/channels/mattermost/webui/index.ts,code:nanobot/channels/mattermost/webui/locales/en.json | A:Mattermost多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-CN.json[CL2T]: F:Mattermost设置界面简中文案，25键 | R:code:nanobot/channels/mattermost/webui/index.ts,code:nanobot/channels/mattermost/webui/locales/en.json | A:Mattermost多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-TW.json[CL2T]: F:Mattermost设置界面繁中文案，25键 | R:code:nanobot/channels/mattermost/webui/index.ts,code:nanobot/channels/mattermost/webui/locales/en.json | A:Mattermost多语言文案维护 | S:键集合以 en.json 为准，只改文案
+
+===/<repository>/nanobot/channels/msteams/webui/locales/===
+en.json[CL2T]: F:Teams设置界面英文文案，19键 | R:code:nanobot/channels/msteams/webui/index.ts,code:nanobot/channels/msteams/webui/locales/en.json | A:Teams多语言文案维护 | S:键集合以 en.json 为准，只改文案
+es.json[CL2T]: F:Teams设置界面西语文案，19键 | R:code:nanobot/channels/msteams/webui/index.ts,code:nanobot/channels/msteams/webui/locales/en.json | A:Teams多语言文案维护 | S:键集合以 en.json 为准，只改文案
+fr.json[CL2T]: F:Teams设置界面法语文案，19键 | R:code:nanobot/channels/msteams/webui/index.ts,code:nanobot/channels/msteams/webui/locales/en.json | A:Teams多语言文案维护 | S:键集合以 en.json 为准，只改文案
+id.json[CL2T]: F:Teams设置界面印尼语文案，19键 | R:code:nanobot/channels/msteams/webui/index.ts,code:nanobot/channels/msteams/webui/locales/en.json | A:Teams多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ja.json[CL2T]: F:Teams设置界面日语文案，19键 | R:code:nanobot/channels/msteams/webui/index.ts,code:nanobot/channels/msteams/webui/locales/en.json | A:Teams多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ko.json[CL2T]: F:Teams设置界面韩语文案，19键 | R:code:nanobot/channels/msteams/webui/index.ts,code:nanobot/channels/msteams/webui/locales/en.json | A:Teams多语言文案维护 | S:键集合以 en.json 为准，只改文案
+pt-BR.json[CL2T]: F:Teams设置界面葡语(巴西)文案，19键 | R:code:nanobot/channels/msteams/webui/index.ts,code:nanobot/channels/msteams/webui/locales/en.json | A:Teams多语言文案维护 | S:键集合以 en.json 为准，只改文案
+vi.json[CL2T]: F:Teams设置界面越南语文案，19键 | R:code:nanobot/channels/msteams/webui/index.ts,code:nanobot/channels/msteams/webui/locales/en.json | A:Teams多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-CN.json[CL2T]: F:Teams设置界面简中文案，19键 | R:code:nanobot/channels/msteams/webui/index.ts,code:nanobot/channels/msteams/webui/locales/en.json | A:Teams多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-TW.json[CL2T]: F:Teams设置界面繁中文案，19键 | R:code:nanobot/channels/msteams/webui/index.ts,code:nanobot/channels/msteams/webui/locales/en.json | A:Teams多语言文案维护 | S:键集合以 en.json 为准，只改文案
+
+===/<repository>/nanobot/channels/napcat/webui/locales/===
+en.json[CL2T]: F:NapCat设置界面英文文案，18键 | R:code:nanobot/channels/napcat/webui/index.ts,code:nanobot/channels/napcat/webui/locales/en.json | A:NapCat多语言文案维护 | S:键集合以 en.json 为准，只改文案
+es.json[CL2T]: F:NapCat设置界面西语文案，18键 | R:code:nanobot/channels/napcat/webui/index.ts,code:nanobot/channels/napcat/webui/locales/en.json | A:NapCat多语言文案维护 | S:键集合以 en.json 为准，只改文案
+fr.json[CL2T]: F:NapCat设置界面法语文案，18键 | R:code:nanobot/channels/napcat/webui/index.ts,code:nanobot/channels/napcat/webui/locales/en.json | A:NapCat多语言文案维护 | S:键集合以 en.json 为准，只改文案
+id.json[CL2T]: F:NapCat设置界面印尼语文案，18键 | R:code:nanobot/channels/napcat/webui/index.ts,code:nanobot/channels/napcat/webui/locales/en.json | A:NapCat多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ja.json[CL2T]: F:NapCat设置界面日语文案，18键 | R:code:nanobot/channels/napcat/webui/index.ts,code:nanobot/channels/napcat/webui/locales/en.json | A:NapCat多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ko.json[CL2T]: F:NapCat设置界面韩语文案，18键 | R:code:nanobot/channels/napcat/webui/index.ts,code:nanobot/channels/napcat/webui/locales/en.json | A:NapCat多语言文案维护 | S:键集合以 en.json 为准，只改文案
+pt-BR.json[CL2T]: F:NapCat设置界面葡语(巴西)文案，18键 | R:code:nanobot/channels/napcat/webui/index.ts,code:nanobot/channels/napcat/webui/locales/en.json | A:NapCat多语言文案维护 | S:键集合以 en.json 为准，只改文案
+vi.json[CL2T]: F:NapCat设置界面越南语文案，18键 | R:code:nanobot/channels/napcat/webui/index.ts,code:nanobot/channels/napcat/webui/locales/en.json | A:NapCat多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-CN.json[CL2T]: F:NapCat设置界面简中文案，18键 | R:code:nanobot/channels/napcat/webui/index.ts,code:nanobot/channels/napcat/webui/locales/en.json | A:NapCat多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-TW.json[CL2T]: F:NapCat设置界面繁中文案，18键 | R:code:nanobot/channels/napcat/webui/index.ts,code:nanobot/channels/napcat/webui/locales/en.json | A:NapCat多语言文案维护 | S:键集合以 en.json 为准，只改文案
+
+===/<repository>/nanobot/channels/qq/webui/locales/===
+en.json[CL2T]: F:QQ设置界面英文文案，18键 | R:code:nanobot/channels/qq/webui/index.ts,code:nanobot/channels/qq/webui/locales/en.json | A:QQ多语言文案维护 | S:键集合以 en.json 为准，只改文案
+es.json[CL2T]: F:QQ设置界面西语文案，18键 | R:code:nanobot/channels/qq/webui/index.ts,code:nanobot/channels/qq/webui/locales/en.json | A:QQ多语言文案维护 | S:键集合以 en.json 为准，只改文案
+fr.json[CL2T]: F:QQ设置界面法语文案，18键 | R:code:nanobot/channels/qq/webui/index.ts,code:nanobot/channels/qq/webui/locales/en.json | A:QQ多语言文案维护 | S:键集合以 en.json 为准，只改文案
+id.json[CL2T]: F:QQ设置界面印尼语文案，18键 | R:code:nanobot/channels/qq/webui/index.ts,code:nanobot/channels/qq/webui/locales/en.json | A:QQ多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ja.json[CL2T]: F:QQ设置界面日语文案，18键 | R:code:nanobot/channels/qq/webui/index.ts,code:nanobot/channels/qq/webui/locales/en.json | A:QQ多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ko.json[CL2T]: F:QQ设置界面韩语文案，18键 | R:code:nanobot/channels/qq/webui/index.ts,code:nanobot/channels/qq/webui/locales/en.json | A:QQ多语言文案维护 | S:键集合以 en.json 为准，只改文案
+pt-BR.json[CL2T]: F:QQ设置界面葡语(巴西)文案，18键 | R:code:nanobot/channels/qq/webui/index.ts,code:nanobot/channels/qq/webui/locales/en.json | A:QQ多语言文案维护 | S:键集合以 en.json 为准，只改文案
+vi.json[CL2T]: F:QQ设置界面越南语文案，18键 | R:code:nanobot/channels/qq/webui/index.ts,code:nanobot/channels/qq/webui/locales/en.json | A:QQ多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-CN.json[CL2T]: F:QQ设置界面简中文案，18键 | R:code:nanobot/channels/qq/webui/index.ts,code:nanobot/channels/qq/webui/locales/en.json | A:QQ多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-TW.json[CL2T]: F:QQ设置界面繁中文案，18键 | R:code:nanobot/channels/qq/webui/index.ts,code:nanobot/channels/qq/webui/locales/en.json | A:QQ多语言文案维护 | S:键集合以 en.json 为准，只改文案
+
+===/<repository>/nanobot/channels/signal/webui/locales/===
+en.json[CL2T]: F:Signal设置界面英文文案，18键 | R:code:nanobot/channels/signal/webui/index.ts,code:nanobot/channels/signal/webui/locales/en.json | A:Signal多语言文案维护 | S:键集合以 en.json 为准，只改文案
+es.json[CL2T]: F:Signal设置界面西语文案，18键 | R:code:nanobot/channels/signal/webui/index.ts,code:nanobot/channels/signal/webui/locales/en.json | A:Signal多语言文案维护 | S:键集合以 en.json 为准，只改文案
+fr.json[CL2T]: F:Signal设置界面法语文案，18键 | R:code:nanobot/channels/signal/webui/index.ts,code:nanobot/channels/signal/webui/locales/en.json | A:Signal多语言文案维护 | S:键集合以 en.json 为准，只改文案
+id.json[CL2T]: F:Signal设置界面印尼语文案，18键 | R:code:nanobot/channels/signal/webui/index.ts,code:nanobot/channels/signal/webui/locales/en.json | A:Signal多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ja.json[CL2T]: F:Signal设置界面日语文案，18键 | R:code:nanobot/channels/signal/webui/index.ts,code:nanobot/channels/signal/webui/locales/en.json | A:Signal多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ko.json[CL2T]: F:Signal设置界面韩语文案，18键 | R:code:nanobot/channels/signal/webui/index.ts,code:nanobot/channels/signal/webui/locales/en.json | A:Signal多语言文案维护 | S:键集合以 en.json 为准，只改文案
+pt-BR.json[CL2T]: F:Signal设置界面葡语(巴西)文案，18键 | R:code:nanobot/channels/signal/webui/index.ts,code:nanobot/channels/signal/webui/locales/en.json | A:Signal多语言文案维护 | S:键集合以 en.json 为准，只改文案
+vi.json[CL2T]: F:Signal设置界面越南语文案，18键 | R:code:nanobot/channels/signal/webui/index.ts,code:nanobot/channels/signal/webui/locales/en.json | A:Signal多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-CN.json[CL2T]: F:Signal设置界面简中文案，18键 | R:code:nanobot/channels/signal/webui/index.ts,code:nanobot/channels/signal/webui/locales/en.json | A:Signal多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-TW.json[CL2T]: F:Signal设置界面繁中文案，18键 | R:code:nanobot/channels/signal/webui/index.ts,code:nanobot/channels/signal/webui/locales/en.json | A:Signal多语言文案维护 | S:键集合以 en.json 为准，只改文案
+
+===/<repository>/nanobot/channels/slack/webui/locales/===
+en.json[CL2T]: F:Slack设置界面英文文案，18键 | R:code:nanobot/channels/slack/webui/index.ts,code:nanobot/channels/slack/webui/locales/en.json | A:Slack多语言文案维护 | S:键集合以 en.json 为准，只改文案
+es.json[CL2T]: F:Slack设置界面西语文案，18键 | R:code:nanobot/channels/slack/webui/index.ts,code:nanobot/channels/slack/webui/locales/en.json | A:Slack多语言文案维护 | S:键集合以 en.json 为准，只改文案
+fr.json[CL2T]: F:Slack设置界面法语文案，18键 | R:code:nanobot/channels/slack/webui/index.ts,code:nanobot/channels/slack/webui/locales/en.json | A:Slack多语言文案维护 | S:键集合以 en.json 为准，只改文案
+id.json[CL2T]: F:Slack设置界面印尼语文案，18键 | R:code:nanobot/channels/slack/webui/index.ts,code:nanobot/channels/slack/webui/locales/en.json | A:Slack多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ja.json[CL2T]: F:Slack设置界面日语文案，18键 | R:code:nanobot/channels/slack/webui/index.ts,code:nanobot/channels/slack/webui/locales/en.json | A:Slack多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ko.json[CL2T]: F:Slack设置界面韩语文案，18键 | R:code:nanobot/channels/slack/webui/index.ts,code:nanobot/channels/slack/webui/locales/en.json | A:Slack多语言文案维护 | S:键集合以 en.json 为准，只改文案
+pt-BR.json[CL2T]: F:Slack设置界面葡语(巴西)文案，18键 | R:code:nanobot/channels/slack/webui/index.ts,code:nanobot/channels/slack/webui/locales/en.json | A:Slack多语言文案维护 | S:键集合以 en.json 为准，只改文案
+vi.json[CL2T]: F:Slack设置界面越南语文案，18键 | R:code:nanobot/channels/slack/webui/index.ts,code:nanobot/channels/slack/webui/locales/en.json | A:Slack多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-CN.json[CL2T]: F:Slack设置界面简中文案，18键 | R:code:nanobot/channels/slack/webui/index.ts,code:nanobot/channels/slack/webui/locales/en.json | A:Slack多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-TW.json[CL2T]: F:Slack设置界面繁中文案，18键 | R:code:nanobot/channels/slack/webui/index.ts,code:nanobot/channels/slack/webui/locales/en.json | A:Slack多语言文案维护 | S:键集合以 en.json 为准，只改文案
+
+===/<repository>/nanobot/channels/telegram/webui/locales/===
+en.json[CL2T]: F:Telegram设置界面英文文案，19键 | R:code:nanobot/channels/telegram/webui/index.ts,code:nanobot/channels/telegram/webui/locales/en.json | A:Telegram多语言文案维护 | S:键集合以 en.json 为准，只改文案
+es.json[CL2T]: F:Telegram设置界面西语文案，19键 | R:code:nanobot/channels/telegram/webui/index.ts,code:nanobot/channels/telegram/webui/locales/en.json | A:Telegram多语言文案维护 | S:键集合以 en.json 为准，只改文案
+fr.json[CL2T]: F:Telegram设置界面法语文案，19键 | R:code:nanobot/channels/telegram/webui/index.ts,code:nanobot/channels/telegram/webui/locales/en.json | A:Telegram多语言文案维护 | S:键集合以 en.json 为准，只改文案
+id.json[CL2T]: F:Telegram设置界面印尼语文案，19键 | R:code:nanobot/channels/telegram/webui/index.ts,code:nanobot/channels/telegram/webui/locales/en.json | A:Telegram多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ja.json[CL2T]: F:Telegram设置界面日语文案，19键 | R:code:nanobot/channels/telegram/webui/index.ts,code:nanobot/channels/telegram/webui/locales/en.json | A:Telegram多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ko.json[CL2T]: F:Telegram设置界面韩语文案，19键 | R:code:nanobot/channels/telegram/webui/index.ts,code:nanobot/channels/telegram/webui/locales/en.json | A:Telegram多语言文案维护 | S:键集合以 en.json 为准，只改文案
+pt-BR.json[CL2T]: F:Telegram设置界面葡语(巴西)文案，19键 | R:code:nanobot/channels/telegram/webui/index.ts,code:nanobot/channels/telegram/webui/locales/en.json | A:Telegram多语言文案维护 | S:键集合以 en.json 为准，只改文案
+vi.json[CL2T]: F:Telegram设置界面越南语文案，19键 | R:code:nanobot/channels/telegram/webui/index.ts,code:nanobot/channels/telegram/webui/locales/en.json | A:Telegram多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-CN.json[CL2T]: F:Telegram设置界面简中文案，19键 | R:code:nanobot/channels/telegram/webui/index.ts,code:nanobot/channels/telegram/webui/locales/en.json | A:Telegram多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-TW.json[CL2T]: F:Telegram设置界面繁中文案，19键 | R:code:nanobot/channels/telegram/webui/index.ts,code:nanobot/channels/telegram/webui/locales/en.json | A:Telegram多语言文案维护 | S:键集合以 en.json 为准，只改文案
+
+===/<repository>/nanobot/channels/websocket/webui/locales/===
+en.json[CL2T]: F:WebSocket设置界面英文文案，7键 | R:code:nanobot/channels/websocket/webui/index.ts,code:nanobot/channels/websocket/webui/locales/en.json | A:WebSocket多语言文案维护 | S:键集合以 en.json 为准，只改文案
+es.json[CL2T]: F:WebSocket设置界面西语文案，7键 | R:code:nanobot/channels/websocket/webui/index.ts,code:nanobot/channels/websocket/webui/locales/en.json | A:WebSocket多语言文案维护 | S:键集合以 en.json 为准，只改文案
+fr.json[CL2T]: F:WebSocket设置界面法语文案，7键 | R:code:nanobot/channels/websocket/webui/index.ts,code:nanobot/channels/websocket/webui/locales/en.json | A:WebSocket多语言文案维护 | S:键集合以 en.json 为准，只改文案
+id.json[CL2T]: F:WebSocket设置界面印尼语文案，7键 | R:code:nanobot/channels/websocket/webui/index.ts,code:nanobot/channels/websocket/webui/locales/en.json | A:WebSocket多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ja.json[CL2T]: F:WebSocket设置界面日语文案，7键 | R:code:nanobot/channels/websocket/webui/index.ts,code:nanobot/channels/websocket/webui/locales/en.json | A:WebSocket多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ko.json[CL2T]: F:WebSocket设置界面韩语文案，7键 | R:code:nanobot/channels/websocket/webui/index.ts,code:nanobot/channels/websocket/webui/locales/en.json | A:WebSocket多语言文案维护 | S:键集合以 en.json 为准，只改文案
+pt-BR.json[CL2T]: F:WebSocket设置界面葡语(巴西)文案，7键 | R:code:nanobot/channels/websocket/webui/index.ts,code:nanobot/channels/websocket/webui/locales/en.json | A:WebSocket多语言文案维护 | S:键集合以 en.json 为准，只改文案
+vi.json[CL2T]: F:WebSocket设置界面越南语文案，7键 | R:code:nanobot/channels/websocket/webui/index.ts,code:nanobot/channels/websocket/webui/locales/en.json | A:WebSocket多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-CN.json[CL2T]: F:WebSocket设置界面简中文案，7键 | R:code:nanobot/channels/websocket/webui/index.ts,code:nanobot/channels/websocket/webui/locales/en.json | A:WebSocket多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-TW.json[CL2T]: F:WebSocket设置界面繁中文案，7键 | R:code:nanobot/channels/websocket/webui/index.ts,code:nanobot/channels/websocket/webui/locales/en.json | A:WebSocket多语言文案维护 | S:键集合以 en.json 为准，只改文案
+
+===/<repository>/nanobot/channels/whatsapp/webui/locales/===
+en.json[CL2T]: F:WhatsApp设置界面英文文案，14键 | R:code:nanobot/channels/whatsapp/webui/index.ts,code:nanobot/channels/whatsapp/webui/locales/en.json | A:WhatsApp多语言文案维护 | S:键集合以 en.json 为准，只改文案
+es.json[CL2T]: F:WhatsApp设置界面西语文案，14键 | R:code:nanobot/channels/whatsapp/webui/index.ts,code:nanobot/channels/whatsapp/webui/locales/en.json | A:WhatsApp多语言文案维护 | S:键集合以 en.json 为准，只改文案
+fr.json[CL2T]: F:WhatsApp设置界面法语文案，14键 | R:code:nanobot/channels/whatsapp/webui/index.ts,code:nanobot/channels/whatsapp/webui/locales/en.json | A:WhatsApp多语言文案维护 | S:键集合以 en.json 为准，只改文案
+id.json[CL2T]: F:WhatsApp设置界面印尼语文案，14键 | R:code:nanobot/channels/whatsapp/webui/index.ts,code:nanobot/channels/whatsapp/webui/locales/en.json | A:WhatsApp多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ja.json[CL2T]: F:WhatsApp设置界面日语文案，14键 | R:code:nanobot/channels/whatsapp/webui/index.ts,code:nanobot/channels/whatsapp/webui/locales/en.json | A:WhatsApp多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ko.json[CL2T]: F:WhatsApp设置界面韩语文案，14键 | R:code:nanobot/channels/whatsapp/webui/index.ts,code:nanobot/channels/whatsapp/webui/locales/en.json | A:WhatsApp多语言文案维护 | S:键集合以 en.json 为准，只改文案
+pt-BR.json[CL2T]: F:WhatsApp设置界面葡语(巴西)文案，14键 | R:code:nanobot/channels/whatsapp/webui/index.ts,code:nanobot/channels/whatsapp/webui/locales/en.json | A:WhatsApp多语言文案维护 | S:键集合以 en.json 为准，只改文案
+vi.json[CL2T]: F:WhatsApp设置界面越南语文案，14键 | R:code:nanobot/channels/whatsapp/webui/index.ts,code:nanobot/channels/whatsapp/webui/locales/en.json | A:WhatsApp多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-CN.json[CL2T]: F:WhatsApp设置界面简中文案，14键 | R:code:nanobot/channels/whatsapp/webui/index.ts,code:nanobot/channels/whatsapp/webui/locales/en.json | A:WhatsApp多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-TW.json[CL2T]: F:WhatsApp设置界面繁中文案，14键 | R:code:nanobot/channels/whatsapp/webui/index.ts,code:nanobot/channels/whatsapp/webui/locales/en.json | A:WhatsApp多语言文案维护 | S:键集合以 en.json 为准，只改文案
+
+===/<repository>/nanobot/channels/dingtalk/webui/locales/===
+en.json[CL2T]: F:钉钉设置界面英文文案，15键 | R:code:nanobot/channels/dingtalk/webui/index.ts,code:nanobot/channels/dingtalk/webui/locales/en.json | A:钉钉多语言文案维护 | S:键集合以 en.json 为准，只改文案
+es.json[CL2T]: F:钉钉设置界面西语文案，15键 | R:code:nanobot/channels/dingtalk/webui/index.ts,code:nanobot/channels/dingtalk/webui/locales/en.json | A:钉钉多语言文案维护 | S:键集合以 en.json 为准，只改文案
+fr.json[CL2T]: F:钉钉设置界面法语文案，15键 | R:code:nanobot/channels/dingtalk/webui/index.ts,code:nanobot/channels/dingtalk/webui/locales/en.json | A:钉钉多语言文案维护 | S:键集合以 en.json 为准，只改文案
+id.json[CL2T]: F:钉钉设置界面印尼语文案，15键 | R:code:nanobot/channels/dingtalk/webui/index.ts,code:nanobot/channels/dingtalk/webui/locales/en.json | A:钉钉多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ja.json[CL2T]: F:钉钉设置界面日语文案，15键 | R:code:nanobot/channels/dingtalk/webui/index.ts,code:nanobot/channels/dingtalk/webui/locales/en.json | A:钉钉多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ko.json[CL2T]: F:钉钉设置界面韩语文案，15键 | R:code:nanobot/channels/dingtalk/webui/index.ts,code:nanobot/channels/dingtalk/webui/locales/en.json | A:钉钉多语言文案维护 | S:键集合以 en.json 为准，只改文案
+pt-BR.json[CL2T]: F:钉钉设置界面葡语(巴西)文案，15键 | R:code:nanobot/channels/dingtalk/webui/index.ts,code:nanobot/channels/dingtalk/webui/locales/en.json | A:钉钉多语言文案维护 | S:键集合以 en.json 为准，只改文案
+vi.json[CL2T]: F:钉钉设置界面越南语文案，15键 | R:code:nanobot/channels/dingtalk/webui/index.ts,code:nanobot/channels/dingtalk/webui/locales/en.json | A:钉钉多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-CN.json[CL2T]: F:钉钉设置界面简中文案，16键 | R:code:nanobot/channels/dingtalk/webui/index.ts,code:nanobot/channels/dingtalk/webui/locales/en.json | A:钉钉多语言文案维护 | S:以 en.json 为准，displayName 为本文件独有
+zh-TW.json[CL2T]: F:钉钉设置界面繁中文案，16键 | R:code:nanobot/channels/dingtalk/webui/index.ts,code:nanobot/channels/dingtalk/webui/locales/en.json | A:钉钉多语言文案维护 | S:以 en.json 为准，displayName 为本文件独有
+
+===/<repository>/nanobot/channels/feishu/webui/locales/===
+en.json[CL2T]: F:飞书设置界面英文文案，43键 | R:code:nanobot/channels/feishu/webui/index.ts,code:nanobot/channels/feishu/webui/locales/en.json | A:飞书多语言文案维护 | S:键集合以 en.json 为准，只改文案
+es.json[CL2T]: F:飞书设置界面西语文案，43键 | R:code:nanobot/channels/feishu/webui/index.ts,code:nanobot/channels/feishu/webui/locales/en.json | A:飞书多语言文案维护 | S:键集合以 en.json 为准，只改文案
+fr.json[CL2T]: F:飞书设置界面法语文案，43键 | R:code:nanobot/channels/feishu/webui/index.ts,code:nanobot/channels/feishu/webui/locales/en.json | A:飞书多语言文案维护 | S:键集合以 en.json 为准，只改文案
+id.json[CL2T]: F:飞书设置界面印尼语文案，43键 | R:code:nanobot/channels/feishu/webui/index.ts,code:nanobot/channels/feishu/webui/locales/en.json | A:飞书多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ja.json[CL2T]: F:飞书设置界面日语文案，43键 | R:code:nanobot/channels/feishu/webui/index.ts,code:nanobot/channels/feishu/webui/locales/en.json | A:飞书多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ko.json[CL2T]: F:飞书设置界面韩语文案，43键 | R:code:nanobot/channels/feishu/webui/index.ts,code:nanobot/channels/feishu/webui/locales/en.json | A:飞书多语言文案维护 | S:键集合以 en.json 为准，只改文案
+pt-BR.json[CL2T]: F:飞书设置界面葡语(巴西)文案，43键 | R:code:nanobot/channels/feishu/webui/index.ts,code:nanobot/channels/feishu/webui/locales/en.json | A:飞书多语言文案维护 | S:键集合以 en.json 为准，只改文案
+vi.json[CL2T]: F:飞书设置界面越南语文案，43键 | R:code:nanobot/channels/feishu/webui/index.ts,code:nanobot/channels/feishu/webui/locales/en.json | A:飞书多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-CN.json[CL2T]: F:飞书设置界面简中文案，44键 | R:code:nanobot/channels/feishu/webui/index.ts,code:nanobot/channels/feishu/webui/locales/en.json | A:飞书多语言文案维护 | S:以 en.json 为准，displayName 为本文件独有
+zh-TW.json[CL2T]: F:飞书设置界面繁中文案，44键 | R:code:nanobot/channels/feishu/webui/index.ts,code:nanobot/channels/feishu/webui/locales/en.json | A:飞书多语言文案维护 | S:以 en.json 为准，displayName 为本文件独有
+
+===/<repository>/nanobot/channels/wecom/webui/locales/===
+en.json[CL2T]: F:企微设置界面英文文案，15键 | R:code:nanobot/channels/wecom/webui/index.ts,code:nanobot/channels/wecom/webui/locales/en.json | A:企微多语言文案维护 | S:键集合以 en.json 为准，只改文案
+es.json[CL2T]: F:企微设置界面西语文案，15键 | R:code:nanobot/channels/wecom/webui/index.ts,code:nanobot/channels/wecom/webui/locales/en.json | A:企微多语言文案维护 | S:键集合以 en.json 为准，只改文案
+fr.json[CL2T]: F:企微设置界面法语文案，15键 | R:code:nanobot/channels/wecom/webui/index.ts,code:nanobot/channels/wecom/webui/locales/en.json | A:企微多语言文案维护 | S:键集合以 en.json 为准，只改文案
+id.json[CL2T]: F:企微设置界面印尼语文案，15键 | R:code:nanobot/channels/wecom/webui/index.ts,code:nanobot/channels/wecom/webui/locales/en.json | A:企微多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ja.json[CL2T]: F:企微设置界面日语文案，15键 | R:code:nanobot/channels/wecom/webui/index.ts,code:nanobot/channels/wecom/webui/locales/en.json | A:企微多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ko.json[CL2T]: F:企微设置界面韩语文案，15键 | R:code:nanobot/channels/wecom/webui/index.ts,code:nanobot/channels/wecom/webui/locales/en.json | A:企微多语言文案维护 | S:键集合以 en.json 为准，只改文案
+pt-BR.json[CL2T]: F:企微设置界面葡语(巴西)文案，15键 | R:code:nanobot/channels/wecom/webui/index.ts,code:nanobot/channels/wecom/webui/locales/en.json | A:企微多语言文案维护 | S:键集合以 en.json 为准，只改文案
+vi.json[CL2T]: F:企微设置界面越南语文案，15键 | R:code:nanobot/channels/wecom/webui/index.ts,code:nanobot/channels/wecom/webui/locales/en.json | A:企微多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-CN.json[CL2T]: F:企微设置界面简中文案，16键 | R:code:nanobot/channels/wecom/webui/index.ts,code:nanobot/channels/wecom/webui/locales/en.json | A:企微多语言文案维护 | S:以 en.json 为准，displayName 为本文件独有
+zh-TW.json[CL2T]: F:企微设置界面繁中文案，16键 | R:code:nanobot/channels/wecom/webui/index.ts,code:nanobot/channels/wecom/webui/locales/en.json | A:企微多语言文案维护 | S:以 en.json 为准，displayName 为本文件独有
+
+===/<repository>/nanobot/channels/weixin/webui/locales/===
+en.json[CL2T]: F:微信设置界面英文文案，40键 | R:code:nanobot/channels/weixin/webui/index.ts,code:nanobot/channels/weixin/webui/locales/en.json | A:微信多语言文案维护 | S:键集合以 en.json 为准，只改文案
+es.json[CL2T]: F:微信设置界面西语文案，40键 | R:code:nanobot/channels/weixin/webui/index.ts,code:nanobot/channels/weixin/webui/locales/en.json | A:微信多语言文案维护 | S:键集合以 en.json 为准，只改文案
+fr.json[CL2T]: F:微信设置界面法语文案，40键 | R:code:nanobot/channels/weixin/webui/index.ts,code:nanobot/channels/weixin/webui/locales/en.json | A:微信多语言文案维护 | S:键集合以 en.json 为准，只改文案
+id.json[CL2T]: F:微信设置界面印尼语文案，40键 | R:code:nanobot/channels/weixin/webui/index.ts,code:nanobot/channels/weixin/webui/locales/en.json | A:微信多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ja.json[CL2T]: F:微信设置界面日语文案，40键 | R:code:nanobot/channels/weixin/webui/index.ts,code:nanobot/channels/weixin/webui/locales/en.json | A:微信多语言文案维护 | S:键集合以 en.json 为准，只改文案
+ko.json[CL2T]: F:微信设置界面韩语文案，40键 | R:code:nanobot/channels/weixin/webui/index.ts,code:nanobot/channels/weixin/webui/locales/en.json | A:微信多语言文案维护 | S:键集合以 en.json 为准，只改文案
+pt-BR.json[CL2T]: F:微信设置界面葡语(巴西)文案，40键 | R:code:nanobot/channels/weixin/webui/index.ts,code:nanobot/channels/weixin/webui/locales/en.json | A:微信多语言文案维护 | S:键集合以 en.json 为准，只改文案
+vi.json[CL2T]: F:微信设置界面越南语文案，40键 | R:code:nanobot/channels/weixin/webui/index.ts,code:nanobot/channels/weixin/webui/locales/en.json | A:微信多语言文案维护 | S:键集合以 en.json 为准，只改文案
+zh-CN.json[CL2T]: F:微信设置界面简中文案，41键 | R:code:nanobot/channels/weixin/webui/index.ts,code:nanobot/channels/weixin/webui/locales/en.json | A:微信多语言文案维护 | S:以 en.json 为准，displayName 为本文件独有
+zh-TW.json[CL2T]: F:微信设置界面繁中文案，41键 | R:code:nanobot/channels/weixin/webui/index.ts,code:nanobot/channels/weixin/webui/locales/en.json | A:微信多语言文案维护 | S:以 en.json 为准，displayName 为本文件独有
+
+===/<repository>/webui/src/components/===
+AttachmentTile.tsx[AU4S]: F:附件预览卡片：按图片/视频/文件类型渲染缩略图、名称与打开动作。 | R:code:webui/src/components/FileReferenceChip.tsx | A:改附件展示的开发者 | S:附件类型判断以 mime 为准，未知类型回退为文件图标。
+ChatList.tsx[AU6L]: F:会话列表主体：分组、滚动与选中态渲染，承担侧边栏的列表性能。 | R:code:webui/src/components/Sidebar.tsx,code:webui/src/components/SidebarSelectionHighlight.tsx | A:改会话列表表现与性能的开发者 | S:组件用 memo 包裹，props 引用不稳定会引发整列重渲染。
+CliAppMentionText.tsx[AU4M]: F:能力提及片段的解析与渲染：CLI Apps、MCP 预设与会话提及。 | R:code:webui/src/components/UserMessageText.tsx | A:改输入框提及能力的开发者 | S:分段函数是纯函数，改分词规则要同步补全与实际渲染两处。
+CodeBlock.tsx[AU4M]: F:代码块渲染：语言标识、复制与横向滚动样式。 | R:code:webui/src/components/MarkdownTextRenderer.tsx | A:改代码块呈现的开发者 | S:复制按钮需在无剪贴板 API 时降级。
+ConnectionBadge.tsx[AU3T]: F:连接状态徽标：展示 WebSocket 连接健康度。 | R:code:webui/src/lib/connection.ts | A:改连接状态提示的开发者 | S:-
+DeleteConfirm.tsx[AU3S]: F:删除确认对话框，含危险操作文案与二次确认。 | R:code:webui/src/components/ui/alert-dialog.tsx | A:改删除流程的开发者 | S:-
+FilePreviewAvailabilityContext.tsx[AU3T]: F:提供文件预览可用性解析器的上下文，避免逐项探测。 | R:code:webui/src/components/FilePreviewPanel.tsx | A:改文件预览联动的开发者 | S:解析器返回 Promise，未提供 Provider 时调用方需回退。
+FilePreviewPanel.tsx[AU4M]: F:文件预览面板：拉取内容、语法着色与关闭交互。 | R:code:webui/src/components/FilePreviewAvailabilityContext.tsx | A:改文件预览的开发者 | S:预览内容由后端做工作区校验，前端不得自行拼接路径。
+FileReferenceChip.tsx[AU4M]: F:消息内文件路径的识别与芯片展示：类型判定、拆分与图标。 | R:code:webui/src/components/FilePreviewPanel.tsx | A:改消息内文件引用的开发者 | S:路径识别是启发式的，正则放宽会把普通文本误判为文件。
+ImageLightbox.tsx[AU3S]: F:图片灯箱：全屏查看、缩放与键盘关闭。 | R:code:webui/src/components/AttachmentTile.tsx | A:改图片查看的开发者 | S:-
+InlineTokenHighlight.tsx[AC3T]: F:行内 token 高亮的颜色常量与包装组件。 | R:code:webui/src/components/UserMessageText.tsx | A:改行内高亮的开发者 | S:颜色走 CSS 变量，新增变量要同步 globals.css。
+LanguageSwitcher.tsx[AU3T]: F:界面语言切换器，写入本地偏好。 | R:code:webui/src/i18n/index.ts | A:改语言切换的开发者 | S:语言持久化在 localStorage，与后端设置无关。
+MarkdownText.tsx[AU3S]: F:轻量 Markdown 文本入口，提供渲染器预加载。 | R:code:webui/src/components/MarkdownTextRenderer.tsx | A:改 Markdown 入口的开发者 | S:渲染器按需懒加载，预加载失败不影响首屏。
+MarkdownTextRenderer.tsx[AU6L]: F:Markdown 渲染核心：代码块、链接、表格与安全转义。 | R:code:webui/src/components/CodeBlock.tsx,code:webui/src/components/FileReferenceChip.tsx | A:改 Markdown 渲染的开发者 | S:链接与图片需经安全校验，禁止直接注入 HTML。
+MessageBubble.tsx[AU6L]: F:消息气泡：用户/助手消息、流式标注、推理块与追踪分组。 | R:code:webui/src/components/thread/AgentActivityCluster.tsx | A:改消息呈现的开发者 | S:流式与非流式走同一组件，改样式要覆盖两种状态。
+RenameChatDialog.tsx[AU3T]: F:会话重命名对话框。 | R:code:webui/src/components/ChatList.tsx | A:改会话重命名的开发者 | S:名称去除首尾空白，空名视为取消。
+SessionSearchDialog.tsx[AU4M]: F:会话搜索对话框：关键词检索、结果列表与跳转。 | R:code:nanobot/agent/tools/sessions.py | A:改会话搜索界面的开发者 | S:检索在后端做可见性过滤，前端只渲染返回结果。
+Sidebar.tsx[AU6M]: F:侧边栏容器：会话列表、搜索入口与底部操作区编排。 | R:code:webui/src/components/ChatList.tsx | A:改侧边栏布局的开发者 | S:-
+SidebarSelectionHighlight.tsx[AU4S]: F:侧边栏选中项的高亮与滚动定位。 | R:code:webui/src/components/Sidebar.tsx | A:改侧边栏选中态的开发者 | S:类名常量被多处复用，改名需全量替换。
+SlashCommandText.tsx[AU3T]: F:斜杠命令的高亮渲染。 | R:code:webui/src/components/UserMessageText.tsx | A:改斜杠命令提示的开发者 | S:-
+UserMessageText.tsx[AU4S]: F:用户消息文本渲染：文件引用、能力提及与斜杠命令的组合。 | R:code:webui/src/components/CliAppMentionText.tsx | A:改用户消息呈现的开发者 | S:多种 token 组合时顺序敏感，新 token 必须定义优先级。
+
+===/<repository>/webui/src/components/settings/===
+SettingsView.tsx[AU9L]: F:设置页主体：provider、模型预设、渠道、技能、记忆与可观测性等分区的表单与读写。 | R:code:nanobot/webui/settings_api.py,code:webui/src/components/settings/channels/ChannelSetupPanel.tsx | A:改设置界面的开发者 | S:字段写入必须与 settings_api 的白名单一致；密钥字段只回显脱敏值。
+SkillsCatalogSettings.tsx[AU4L]: F:技能目录设置：列出内置与工作区技能并支持启停。 | R:code:nanobot/webui/skills_api.py | A:改技能设置界面的开发者 | S:技能启停写工作区文件，路径校验在后端。
+SkillsMarketplace.tsx[AU5L]: F:技能市场界面：搜索公开目录、查看详情与安装。 | R:code:nanobot/webui/skills_marketplace.py | A:改技能市场的开发者 | S:安装走网关下载与校验，前端不直接拉取压缩包。
+ToggleButton.tsx[AC3T]: F:通用开关按钮基础组件。 | R:- | A:复用开关交互的开发者 | S:-
+TokenUsageHeatmap.tsx[AU4M]: F:token 用量热力图：按日期格子展示用量与悬浮明细。 | R:code:nanobot/webui/token_usage.py | A:改用量面板的开发者 | S:时区分桶由后端完成，前端只做展示。
+
+===/<repository>/webui/src/components/settings/channels/===
+ChannelIdentity.tsx[AU5M]: F:渠道身份展示与筛选：名称、图标、描述与启用状态推导。 | R:code:webui/src/components/settings/channels/catalog.ts | A:改渠道列表展示的开发者 | S:渠道显示名优先取本地化文案，回退到 manifest 的 display_name。
+ChannelInstancesPanel.tsx[AU5L]: F:渠道多实例面板：实例列表、增删改与自定义渲染插槽。 | R:code:nanobot/channels/contracts.py | A:改多实例渠道配置的开发者 | S:实例配置结构与后端 contracts 的实例规格一一对应。
+ChannelQrConnectFlow.tsx[AU5M]: F:渠道扫码连接流程的通用实现：二维码、轮询状态与过期重取。 | R:code:nanobot/channels/connect.py | A:改扫码连接流程的开发者 | S:轮询需可取消，组件卸载时必须停掉定时器。
+ChannelSetupPanel.tsx[AU6L]: F:渠道设置主面板：目录行、字段表单、校验提示与保存动作。 | R:code:webui/src/components/settings/channels/CredentialForm.tsx,code:nanobot/channels/contracts.py | A:改渠道配置界面的开发者 | S:字段定义来自后端 setup spec，前端不要硬编码字段清单。
+ChannelSetupParts.tsx[AU5M]: F:渠道设置的拆分部件：指南链接、官方入口、校验徽标与校验明细。 | R:code:webui/src/components/settings/channels/ChannelSetupPanel.tsx | A:改渠道设置部件的开发者 | S:校验状态到样式的映射集中在此，新增状态要补映射。
+CredentialForm.tsx[AU5M]: F:渠道凭据表单的取值、默认值与提交值转换。 | R:code:nanobot/channels/contracts.py | A:改渠道凭据表单的开发者 | S:提交值需经 channelValuesForSubmit 清洗，直接提交原始表单会带上 UI 专用字段。
+catalog.ts[AC4T]: F:渠道展示层的类型定义与展示元数据契约。 | R:code:nanobot/channels/contracts.py | A:改渠道展示类型的开发者 | S:类型与后端 spec 对齐，改字段要同步各渠道的 webui/index。
+
+===/<repository>/webui/src/components/thread/===
+AgentActivityCluster.tsx[AU7L]: F:agent 活动聚合视图：工具调用、推理与搜索步骤的折叠展示。 | R:code:webui/src/components/thread/activity/generic-tool-model.ts | A:改活动时间线展示的开发者 | S:聚类顺序依赖消息顺序与 id，重排会破坏流式增量。
+AssistantSelectionAction.tsx[AU4S]: F:助手消息的选中操作：复制、分叉或重试入口。 | R:code:webui/src/components/MessageBubble.tsx | A:改消息操作按钮的开发者 | S:-
+ModelPresetBadge.tsx[AU5L]: F:模型预设徽标：展示当前预设并支持切换。 | R:code:nanobot/webui/settings_api.py | A:改模型切换入口的开发者 | S:预设变更需经网关写配置，前端不本地保存真值。
+PromptNavigator.tsx[AU4S]: F:提示词导航器：上一/下一条用户消息跳转。 | R:code:webui/src/components/thread/promptNavigation.ts | A:改提示词导航的开发者 | S:-
+PromptRail.tsx[AU5L]: F:右侧提示词导轨：定位各轮用户消息并高亮当前。 | R:code:webui/src/components/thread/promptNavigation.ts,code:webui/src/components/thread/thread-camera.ts | A:改导轨交互的开发者 | S:锚点由 DOM 位置计算，虚拟滚动下需重新测量。
+SessionInfoPopover.tsx[AU4M]: F:会话信息浮层：会话键、模型与用量摘要。 | R:code:webui/src/components/thread/ThreadHeader.tsx | A:改会话信息展示的开发者 | S:-
+StreamErrorNotice.tsx[AU3T]: F:流式错误提示条与关闭动作。 | R:code:webui/src/components/thread/ThreadShell.tsx | A:改流式错误提示的开发者 | S:-
+ThreadComposer.tsx[AU8L]: F:输入区主体：文本输入、附件、斜杠命令、能力提及与发送/中止控制。 | R:code:webui/src/components/CliAppMentionText.tsx,code:nanobot/webui/attachment_ingress.py | A:改输入与发送链路的开发者 | S:附件与文本上限由后端 ingress_policy 决定，前端校验只是提前提示。
+ThreadHeader.tsx[AU4S]: F:会话头部：标题、成员操作与会话信息入口。 | R:code:webui/src/components/thread/SessionInfoPopover.tsx | A:改会话头部布局的开发者 | S:-
+ThreadMessages.tsx[AU6M]: F:消息列表构建：把 UI 消息转成展示单元并处理分叉标记。 | R:code:webui/src/components/MessageBubble.tsx | A:改消息单元的开发者 | S:展示单元的 key 必须稳定，否则流式更新会整段重挂载。
+ThreadShell.tsx[AU7L]: F:会话容器：连接、消息拉取、视图装配与各子面板编排。 | R:code:webui/src/components/thread/ThreadViewport.tsx | A:改会话整体流程的开发者 | S:连接生命周期在此统一管理，子组件不要各自建连。
+ThreadViewport.tsx[AU6L]: F:滚动视口：历史窗口分页、自动跟随与滚动锚定。 | R:code:webui/src/components/thread/thread-camera.ts,code:webui/src/components/thread/thread-motion.ts | A:改滚动行为的开发者 | S:初始窗口 160 条、每次追加 120 条；改窗口大小要同时验证长会话内存。
+WorkspaceControls.tsx[AU5L]: F:工作区项目选择与访问模式菜单。 | R:code:nanobot/webui/workspaces.py | A:改工作区切换的开发者 | S:访问模式由后端枚举定义，新增模式需同步 workspaces 接口。
+promptNavigation.ts[AU4T]: F:提示词锚点计算与滚动定位工具。 | R:code:webui/src/components/thread/PromptRail.tsx | A:改提示词导航的开发者 | S:滚动容器参数必传，假定 window 会在内嵌布局下失效。
+thread-camera.ts[AP5M]: F:视口跟随控制器：流式输出时平滑跟随并在用户上滑时让位。 | R:code:webui/src/components/thread/ThreadViewport.tsx | A:改滚动跟随算法的开发者 | S:用户主动上滑必须暂停跟随，否则会抢滚动条。
+thread-motion.ts[AP5L]: F:滚动动效协调器：几何测量与动效调度。 | R:code:webui/src/components/thread/thread-camera.ts | A:改滚动动效的开发者 | S:动效可被 prefers-reduced-motion 关闭。
+
+===/<repository>/webui/src/components/thread/activity/===
+ActivityStep.tsx[AU4T]: F:活动步骤的通用行组件与色调类型。 | R:code:webui/src/components/thread/AgentActivityCluster.tsx | A:改活动步骤展示的开发者 | S:-
+DiffPair.tsx[AU3T]: F:diff 增删计数的成对展示。 | R:code:webui/src/components/thread/activity/FileEditRow.tsx | A:改 diff 展示的开发者 | S:-
+DiffSyntaxHighlight.tsx[AU4M]: F:diff 行内的语法高亮渲染。 | R:code:webui/src/components/thread/activity/FileEditRow.tsx | A:改 diff 高亮的开发者 | S:语言识别失败时按纯文本渲染，不得抛错。
+FileEditRow.tsx[AU5L]: F:文件编辑活动行：按文件聚合 diff 统计并展开明细。 | R:code:webui/src/components/thread/activity/DiffPair.tsx | A:改文件编辑活动的开发者 | S:无可见 diff 统计时整行折叠，避免展示空 row。
+GenericToolRun.tsx[AU3T]: F:通用工具运行行的渲染封装。 | R:code:webui/src/components/thread/activity/generic-tool-model.ts | A:改工具活动展示的开发者 | S:-
+ReasoningRow.tsx[AU3T]: F:推理内容行与折叠展开。 | R:code:webui/src/components/thread/activity/ThinkingReasoningShell.tsx | A:改推理展示的开发者 | S:-
+ThinkingReasoningShell.tsx[AU4S]: F:思考过程的容器外壳：动画、折叠与标题。 | R:code:webui/src/components/thread/activity/ReasoningRow.tsx | A:改思考过程展示的开发者 | S:-
+WebActivityRow.tsx[AU3T]: F:网页活动的单行展示。 | R:code:webui/src/components/thread/activity/web-search-model.ts | A:改网页活动展示的开发者 | S:-
+WebSearchRun.tsx[AU3T]: F:一次网页搜索运行的展示。 | R:code:webui/src/components/thread/activity/web-search-model.ts | A:改搜索活动展示的开发者 | S:-
+activity-message-model.ts[AU5S]: F:把消息流合并成活动展示模型。 | R:code:webui/src/components/thread/AgentActivityCluster.tsx | A:改活动合并逻辑的开发者 | S:合并是纯函数，不得读取组件外部状态。
+activity-text.ts[AU4T]: F:活动文本的脱敏与截断工具：命令脱敏、路径压缩与摘要。 | R:code:webui/src/components/thread/activity/generic-tool-model.ts | A:改活动文本展示的开发者 | S:展示前必须脱敏，避免把凭据或本地绝对路径暴露在 UI。
+generic-tool-model.ts[AU6M]: F:通用工具追踪行的解析与呈现模型：工具族归类、字段抽取与状态。 | R:code:webui/src/components/thread/activity/trace-activity-model.ts | A:改工具追踪展示的开发者 | S:解析依赖既有文本行格式，改格式要同时改后端输出与解析。
+mcp-activity-model.ts[AU4S]: F:MCP 调用的活动描述模型。 | R:code:nanobot/agent/tools/mcp.py | A:改 MCP 活动展示的开发者 | S:-
+reasoning-preview.ts[AU2T]: F:推理内容的单行预览压缩。 | R:code:webui/src/components/thread/activity/ReasoningRow.tsx | A:改推理预览的开发者 | S:-
+trace-activity-model.ts[AU5M]: F:追踪行的描述模型：把 trace 文本转成可展示的动作摘要。 | R:code:webui/src/components/thread/activity/generic-tool-model.ts | A:改追踪展示的开发者 | S:未知 trace 类型要降级为通用条目，不能丢行。
+web-search-model.ts[AU5M]: F:网页搜索的活动模型：目标源、状态与来源列表。 | R:code:webui/src/components/thread/activity/WebSearchRun.tsx | A:改搜索活动展示的开发者 | S:来源 URL 需经安全过滤后才可点击。
+web-url.ts[AU4T]: F:活动中的 URL 解析与安全校验，仅放行公网 http(s)。 | R:code:webui/src/components/thread/activity/activity-text.ts | A:改活动链接处理的开发者 | S:非公网地址（内网/回环）必须拒绝渲染为可点击链接。
+
+===/<repository>/webui/src/components/ui/===
+alert-dialog.tsx[CU3S]: F:基于 Radix 的确认对话框封装。 | R:- | A:使用通用对话框的开发者 | S:-
+button.tsx[CU3T]: F:按钮组件与变体样式。 | R:- | A:使用按钮的开发者 | S:-
+combobox.tsx[CU4S]: F:组合框导航 hook 与选项类型。 | R:- | A:实现下拉选择的开发者 | S:-
+dialog.tsx[CU3S]: F:对话框基础封装。 | R:- | A:使用对话框的开发者 | S:-
+dropdown-menu.tsx[CU3S]: F:下拉菜单基础封装。 | R:- | A:使用下拉菜单的开发者 | S:-
+floating-surface.ts[CC3T]: F:浮层与模态的样式类名常量集合。 | R:code:webui/src/globals.css | A:改浮层样式的开发者 | S:类名集中于此，散落写死会导致层级与动效不一致。
+input.tsx[CU2T]: F:输入框基础组件。 | R:- | A:使用输入框的开发者 | S:-
+popover.tsx[CU3T]: F:气泡卡片基础封装。 | R:- | A:使用 popover 的开发者 | S:-
+segmented-control.tsx[CU3T]: F:分段控件组件。 | R:- | A:使用分段控件的开发者 | S:-
+sheet.tsx[CU3S]: F:抽屉面板基础封装。 | R:- | A:使用抽屉的开发者 | S:-
+textarea.tsx[CU2T]: F:多行输入框基础组件。 | R:- | A:使用文本域的开发者 | S:-
+tooltip.tsx[CU3T]: F:悬浮提示基础封装。 | R:- | A:使用提示的开发者 | S:-
+
+===/<repository>/webui/===
+.gitignore[FV2T]: F:WebUI 构建产物的忽略规则：node_modules、dist、vite 缓存与覆盖率。 | R:- | A:WebUI 前端开发者 | S:-
+README.md[SG3S]: F:WebUI 源码说明：与 PyPI 打包版的关系、开发依赖、开发与构建命令。 | R:code:docs/webui.md,code:nanobot/webui/build.py | A:改 WebUI 前端的开发者 | S:发布包里的 dist 由构建产出，不要提交构建结果。
+bun.lock[FV8L]: F:WebUI 依赖锁定文件，保证 bun 安装的可复现性。 | R:code:webui/package.json | A:前端依赖升级 | S:只能由 bun install 生成，手工编辑会破坏完整性校验。
+components.json[FC3T]: F:shadcn/ui 生成器配置：new-york 风格、路径别名与组件目录。 | R:code:webui/tsconfig.json | A:新增 shadcn 组件的开发者 | S:路径别名需与 tsconfig 的 paths 保持一致，否则生成到错误目录。
+eslint.config.js[FQ3T]: F:ESLint 扁平配置：推荐规则、TypeScript 与 react-hooks 规则。 | R:code:webui/package.json | A:改前端 lint 规则的开发者 | S:CI 会用此配置跑 lint，新增规则要考虑既有代码存量。
+index.html[FU4S]: F:WebUI 的 HTML 外壳：挂载点、字体与首屏内联样式。 | R:code:webui/src/main.tsx | A:改首屏与挂载的开发者 | S:CSP 由后端下发，内联脚本与外部资源需符合策略。
+package.json[FV5T]: F:WebUI 的依赖与脚本定义：dev/build/lint/test 与运行时依赖清单。 | R:code:webui/bun.lock | A:前端依赖与脚本维护 | S:构建产物路径需与 nanobot/webui/build.py 的期望一致。
+postcss.config.js[FC2T]: F:PostCSS 配置：Tailwind 与 autoprefixer。 | R:code:webui/tailwind.config.js | A:改样式管线的开发者 | S:-
+tailwind.config.js[FC4S]: F:Tailwind 配置：主题色、圆角、动画与排版插件。 | R:code:webui/src/globals.css | A:改样式体系的开发者 | S:主题色映射到 CSS 变量，新增色板需与深色模式成对定义。
+tsconfig.build.json[FC2T]: F:构建用 TS 配置，排除测试与开发文件。 | R:code:webui/tsconfig.json | A:改构建配置的开发者 | S:-
+tsconfig.json[FC4T]: F:WebUI 的 TS 配置：ES2022、路径别名与严格模式。 | R:code:webui/vite.config.ts | A:前端开发者 | S:路径别名 @ 必须与 vite 的 resolve.alias 同步。
+vite.config.ts[FV5S]: F:Vite 配置：React 插件、别名、代理、构建产物与 gzip 预压缩。 | R:code:webui/package.json,code:nanobot/webui/build.py | A:改前端构建的开发者 | S:产物目录必须与后端静态资源查找路径一致；预压缩文件命名要与 HTTP 层匹配。
+
+===/<repository>/webui/src/===
+globals.css[AC8L]: F:全局样式：Tailwind 层、CSS 变量主题、密度与浮层动效。 | R:code:webui/tailwind.config.js | A:改主题与全局样式的开发者 | S:主题色以 CSS 变量定义，硬编码颜色会破坏明暗主题切换。
+App.tsx[AU9L]: F:WebUI 应用根组件：路由、会话选择、侧边栏与主视图编排。 | R:code:webui/src/components/Sidebar.tsx,code:webui/src/components/thread/ThreadShell.tsx | A:改应用整体结构与导航的开发者 | S:视图切换大量使用懒加载，新增页面要走同一模式避免首屏膨胀。
+main.tsx[AU3T]: F:应用入口：挂载 React 根并加载全局样式与 i18n。 | R:code:webui/src/App.tsx | A:改应用启动的开发者 | S:-
+
+===/<repository>/webui/src/channel-plugins/===
+i18n.ts[CG4T]: F:渠道文案的命名空间与翻译函数构造。 | R:code:webui/src/channel-plugins/locale-registry.ts | A:改渠道多语言的开发者 | S:命名空间名由 channelNamespace 生成，手写字符串会取不到文案。
+locale-registry.ts[CG4T]: F:把各渠道自带的 locale 资源注册进 i18next。 | R:code:webui/src/i18n/index.ts | A:改渠道多语言注册的开发者 | S:渠道 locale 由 Vite glob 收集，新增渠道需符合目录约定。
+registry.ts[CE4T]: F:渠道 UI 贡献的注册表：按渠道名取展示配置与自定义组件。 | R:code:webui/src/channel-plugins/types.ts | A:改渠道 UI 扩展的开发者 | S:未注册的渠道回退到通用表单，注册表是唯一来源。
+types.ts[CE3T]: F:渠道 UI 贡献的类型契约：面板、连接流程与展示元数据。 | R:code:webui/src/components/settings/channels/catalog.ts | A:新增渠道 UI 的开发者 | S:类型是渠道包与宿主之间的契约，改字段要同步所有渠道的 index.ts。
+
+===/<repository>/webui/src/i18n/===
+config.ts[CG4T]: F:语言配置：支持列表、存储键、规范化与初始语言解析。 | R:code:webui/src/i18n/index.ts | A:改多语言的开发者 | S:语言持久化在 localStorage 的 nanobot.locale 键。
+index.ts[CG4T]: F:i18next 初始化与资源装配，暴露语言切换 API。 | R:code:webui/src/i18n/config.ts,code:webui/src/channel-plugins/locale-registry.ts | A:改多语言装配的开发者 | S:渠道文案在初始化后注册，漏注册会回退到英文。
+
+===/<repository>/webui/src/types/===
+react-syntax-highlighter-subpaths.d.ts[FL2T]: F:为 react-syntax-highlighter 的子路径导入补类型声明。 | R:code:webui/src/components/CodeBlock.tsx | A:改高亮依赖的开发者 | S:仅补类型，无运行时代码。
+
+===/<repository>/webui/src/hooks/===
+useAttachedImages.ts[AU5L]: F:附件状态管理：编码中/就绪/失败的附件、恢复与移除。 | R:code:webui/src/lib/imageEncode.ts,code:webui/src/workers/imageEncode.worker.ts | A:改附件上传的开发者 | S:图片编码在 worker 完成，主线程不得做同步解码。
+useClipboardAndDrop.ts[AU4S]: F:粘贴与拖拽取图的输入钩子。 | R:code:webui/src/hooks/useAttachedImages.ts | A:改输入方式支持的开发者 | S:只接受图片类型，其他文件走附件入口。
+useDeferredTitleRefresh.ts[AU3T]: F:延迟刷新会话标题，避免每次流式更新都请求。 | R:code:webui/src/hooks/useSessions.ts | A:改标题刷新的开发者 | S:-
+useFileEditDisplayMode.ts[AU3T]: F:文件编辑展示模式（摘要/差异/折叠）的读取。 | R:code:webui/src/lib/local-preferences.ts | A:改编辑展示模式的开发者 | S:模式存在本地偏好，不写后端配置。
+useLogoFallback.ts[AU3T]: F:多候选图标的依次回退加载。 | R:code:webui/src/lib/provider-brand.ts | A:改图标展示的开发者 | S:-
+useMediaQuery.ts[AU2T]: F:媒体查询响应式钩子。 | R:- | A:改响应式布局的开发者 | S:-
+useNanobotStream.ts[AM8L]: F:流式会话核心钩子：发送、增量事件应用、中止与附件提交。 | R:code:webui/src/lib/nanobot-client.ts,code:webui/src/lib/thread-event-projection.ts | A:改流式交互的开发者 | S:事件按 turnId 归并，乱序或重复事件必须幂等处理。
+usePageVisibility.ts[AU2T]: F:页面可见性钩子。 | R:- | A:依赖可见性的逻辑 | S:-
+useSessionAutomationJobs.ts[AU3T]: F:按会话拉取自动化任务的钩子。 | R:code:webui/src/lib/api.ts | A:改自动化界面的开发者 | S:仅在面板打开时拉取，避免空转请求。
+useSessions.ts[AU6L]: F:会话列表与历史的取数：分页、连续性与标题派生。 | R:code:webui/src/lib/api.ts,code:webui/src/hooks/useDeferredTitleRefresh.ts | A:改会话取数的开发者 | S:历史加载用连续性标记防止重复请求。
+useSidebarState.ts[AU4M]: F:侧边栏状态钩子：默认值、规范化与持久化。 | R:code:nanobot/webui/sidebar_state.py | A:改侧边栏状态的开发者 | S:状态存在服务端，本地只做乐观更新。
+useSkills.ts[AU3T]: F:技能列表取数钩子。 | R:code:webui/src/lib/api.ts | A:改技能界面的开发者 | S:-
+useTheme.ts[AU4T]: F:主题钩子与 Provider：明暗/跟随系统的切换。 | R:code:webui/src/lib/local-preferences.ts | A:改主题逻辑的开发者 | S:主题存本地偏好，首屏需内联避免闪烁。
+useVoiceRecorder.ts[AU5L]: F:语音录制钩子：录音状态、权限错误与转写触发。 | R:code:nanobot/webui/transcription_ws.py | A:改语音输入的开发者 | S:浏览器权限被拒要给出具体错误键，不能静默失败。
+
+===/<repository>/webui/src/lib/===
+activity-timeline.ts[AM5M]: F:活动时间线的归一化：判定推理/活动成员与待处理活动。 | R:code:webui/src/components/thread/activity/activity-message-model.ts | A:改活动展示的开发者 | S:判定为纯函数，不得修改入参消息。
+ansi.ts[AG4M]: F:ANSI 转义序列的检测、剥离与分段解析。 | R:code:webui/src/components/CodeBlock.tsx | A:改终端输出展示的开发者 | S:渲染前必须剥离未知序列，防止样式泄漏到整页。
+api.ts[AI7L]: F:WebUI 的 HTTP API 封装：会话、自动化、文件预览、模型与设置的请求与错误类型。 | R:code:webui/src/lib/http.ts,code:nanobot/webui/ws_http.py | A:改前端取数与接口的开发者 | S:统一超时与错误类型由 http.ts 提供，新增接口要复用而非另建 fetch。
+bootstrap.ts[AI4S]: F:启动握手：读取/保存访问密钥、引导请求与 WS URL 推导。 | R:code:webui/src/lib/network.ts | A:改启动与鉴权的开发者 | S:密钥只在本地存储，URL 中带的引导密钥消费后需清理。
+chat-groups.ts[AG5M]: F:会话分组逻辑：按项目分组、折叠阈值与标签。 | R:code:webui/src/components/ChatList.tsx | A:改会话分组的开发者 | S:折叠阈值常量为 8，改动要同步视觉与交互预期。
+cli-app-events.ts[AM3T]: F:CLI Apps 变更的跨组件事件总线。 | R:code:webui/src/lib/api.ts | A:改 CLI Apps 联动的开发者 | S:事件名是跨模块契约，改名需全仓替换。
+clipboard.ts[AG3T]: F:剪贴板写入的兼容封装。 | R:- | A:复制功能的调用方 | S:非安全上下文下需降级。
+code-language.ts[AG3S]: F:代码语言识别：按显式语言名或文件路径后缀归一化。 | R:code:webui/src/components/CodeBlock.tsx | A:改高亮语言的开发者 | S:未知语言回退为纯文本。
+file-diff.ts[AG4T]: F:文件 diff 解析成可渲染的行与 hunk。 | R:code:webui/src/components/thread/activity/FileEditRow.tsx | A:改 diff 展示的开发者 | S:空 diff 需返回不可渲染，避免展示空面板。
+format.ts[AG4S]: F:格式化工具：命令文本识别、预览裁剪、标题派生与时间格式。 | R:code:webui/src/components/ChatList.tsx | A:改展示文案的开发者 | S:标题派生需处理空预览，不能返回空字符串。
+http.ts[AI3T]: F:带超时的 fetch 封装，默认 20 秒。 | R:code:webui/src/lib/api.ts | A:所有前端请求 | S:超时是显式默认值，改动要评估长任务接口。
+imageEncode.ts[AG4T]: F:图片编码入口：与 worker 通信并把结果转成附件。 | R:code:webui/src/workers/imageEncode.worker.ts | A:改图片处理的开发者 | S:worker 不可用时需有降级路径。
+local-preferences.ts[AG4T]: F:本地偏好：密度、活动展示与文件编辑模式的读写与事件。 | R:code:webui/src/hooks/useFileEditDisplayMode.ts | A:改本地偏好项的开发者 | S:这些偏好只存浏览器，不入后端配置。
+mcp-preset-events.ts[AM3T]: F:MCP 预设变更的跨组件事件。 | R:code:webui/src/lib/api.ts | A:改 MCP 预设联动的开发者 | S:-
+media.ts[AG4T]: F:媒体类型推断与附件转换。 | R:code:webui/src/hooks/useNanobotStream.ts | A:改附件发送的开发者 | S:类型推断优先级：mime 优于扩展名。
+nanobot-client.ts[AN8L]: F:WebSocket 客户端：连接与重连、出站命令、入站事件分发与运行快照。 | R:code:webui/src/hooks/useNanobotStream.ts,code:nanobot/channels/websocket/runtime.py | A:改前后端协议与连接管理的开发者 | S:事件分发按类型收敛，新增事件要同时处理重连后的补偿。
+network.ts[AN2T]: F:回环地址判定，用于本机部署的免密路径。 | R:code:webui/src/lib/bootstrap.ts | A:改鉴权判定的开发者 | S:仅识别回环，内网地址不算本机。
+provider-brand.ts[AG4M]: F:provider 品牌元数据：图标候选、别名与安全域名过滤。 | R:code:webui/src/hooks/useLogoFallback.ts | A:改 provider 展示的开发者 | S:外部图标 URL 需经安全过滤，禁用不安全协议与内网域名。
+remark-tex-math.ts[AG5M]: F:remark 插件：把 $...$ 与 $$...$$ 数学语法转成可渲染节点。 | R:code:webui/src/components/MarkdownTextRenderer.tsx | A:改数学公式渲染的开发者 | S:解析要与代码块区分，避免把代码里的 $ 当公式。
+runtime.ts[AG5M]: F:运行宿主抽象：Web 与原生壳的差异封装、WS 创建与能力探测。 | R:code:webui/src/lib/nanobot-client.ts | A:改多宿主适配的开发者 | S:能力探测结果决定可用界面，未探测到就按 Web 处理。
+session-drag.ts[AU2T]: F:会话拖拽的数据传输格式常量与读写。 | R:code:webui/src/components/ChatList.tsx | A:改拖拽交互的开发者 | S:自定义 MIME 类型是跨组件契约。
+skill-events.ts[AM2T]: F:技能变更的跨组件事件。 | R:code:webui/src/lib/api.ts | A:改技能联动的开发者 | S:-
+slash-command.ts[AG3T]: F:斜杠命令匹配与生命周期判定。 | R:code:nanobot/command/ | A:改斜杠命令的开发者 | S:命令集合以后端为准，前端只做匹配。
+subagent-channel-display.ts[AM3T]: F:子代理宣告消息的脱敏与过滤。 | R:code:webui/src/lib/thread-event-projection.ts | A:改子代理展示的开发者 | S:宣告正文需剥离内部标记后再展示。
+temporary-chat.ts[AG3T]: F:临时会话的标题派生与本地创建。 | R:code:webui/src/components/Sidebar.tsx | A:改临时会话的开发者 | S:临时会话不落服务端历史，刷新后即消失。
+thread-display-compat.ts[AM4T]: F:历史消息的展示兼容：旧长任务消息归一化与转录投影。 | R:code:webui/src/lib/thread-event-projection.ts | A:改历史兼容的开发者 | S:兼容逻辑只做投影，不改写后端存储。
+thread-event-projection.ts[AM6M]: F:把流式事件投影成 UI 消息数组：轮次字段、流式助手定位与替换。 | R:code:webui/src/hooks/useNanobotStream.ts,code:webui/src/lib/types.ts | A:改流式消息投影的开发者 | S:流式定位依赖 turnId 与占位符，索引失效要回退到重建。
+tool-traces.ts[AG5S]: F:工具追踪文本的规范化与进度事件合并。 | R:code:webui/src/components/thread/activity/generic-tool-model.ts | A:改工具追踪展示的开发者 | S:追踪行文本格式是前后端共享契约，改格式要两边同步。
+types.ts[AG8L]: F:WebUI 的共享类型定义：会话、消息、事件、设置与运行时结构。 | R:code:nanobot/webui/settings_api.py | A:所有前端类型使用者 | S:类型需与后端载荷保持一致，新增字段优先设为可选以兼容旧服务端。
+user-message-quote.ts[AG3T]: F:用户消息引用的格式化与解析。 | R:code:webui/src/components/UserMessageText.tsx | A:改引用功能的开发者 | S:解析需容忍格式损坏，不能抛错阻塞渲染。
+utils.ts[AG2T]: F:className 合并工具。 | R:- | A:所有组件 | S:-
+workspace.ts[AG4T]: F:工作区路径处理：作用域合并、项目名推导与路径规范化。 | R:code:nanobot/webui/workspaces.py | A:改工作区交互的开发者 | S:访问模式需与后端枚举一致，作用域构建不能在前端拼接。
+
+===/<repository>/webui/src/providers/===
+ClientProvider.tsx[AU3T]: F:WebSocket 客户端的 React 上下文提供者。 | R:code:webui/src/lib/nanobot-client.ts | A:改客户端装配的开发者 | S:整个应用共用一个连接，不要在子组件另建。
+
+===/<repository>/webui/src/workers/===
+imageEncode.worker.ts[AG4M]: F:图片编码 worker：在后台线程压缩/转码并回传。 | R:code:webui/src/lib/imageEncode.ts | A:改图片编码的开发者 | S:worker 内不得访问 DOM，失败要用消息回传而非抛错。
+
+===/<repository>/nanobot/agent/hooks/===
+__init__.py[DM1T]: F:具体钩子实现的包入口。 | R:code:nanobot/agent/hook.py | A:使用内置钩子的代码 | S:-
+file_edit_activity.py[DM4S]: F:监听文件编辑类工具并产出文件编辑活动事件。 | R:code:nanobot/utils/file_edit_events.py | A:改文件编辑活动上报的开发者 | S:判定编辑工具依赖工具名集合，新工具要同步登记。
+
+===/<repository>/nanobot/api/===
+__init__.py[IO1T]: F:OpenAI 兼容 HTTP API 的包入口。 | R:code:nanobot/api/server.py | A:使用 API 模块的代码 | S:-
+runtime.py[IO4T]: F:WebUI 托管的 OpenAI 兼容 API 后台进程控制。 | R:code:nanobot/process_runtime.py | A:改 API 进程管理的开发者 | S:进程状态落盘，异常退出需可从状态文件恢复判断。
+server.py[IN6L]: F:OpenAI 兼容 API 服务：/v1/chat/completions 与 /v1/models，绑定固定会话。 | R:code:nanobot/nanobot.py,code:nanobot/security/network.py | A:改对外 API 的开发者 | S:请求体需显式校验为 JSON 对象；错误统一返回 OpenAI 兼容错误结构。
+
+===/<repository>/nanobot/apps/===
+__init__.py[IE1T]: F:Apps 域的共享协议辅助入口。 | R:code:nanobot/apps/protocol.py | A:使用 Apps 域的类型 | S:-
+protocol.py[IE3T]: F:设置管理的 agent 应用清单中性结构。 | R:code:nanobot/webui/nanobot_features_api.py | A:改应用清单的开发者 | S:清单仅描述，不负责安装。
+
+===/<repository>/nanobot/apps/cli/===
+__init__.py[IE2T]: F:统一 Apps 域下的 CLI 应用适配入口。 | R:code:nanobot/apps/cli/service.py | A:改 CLI Apps 的开发者 | S:-
+service.py[IE8L]: F:CLI Apps 的目录、安装状态与安全执行。 | R:code:nanobot/apps/cli/utils.py,code:nanobot/agent/tools/cli_apps.py | A:改 CLI Apps 能力的开发者 | S:命令含 shell 元字符必须拒绝；可执行文件存在性检查不能替代白名单。
+utils.py[IE3T]: F:CLI Apps 在 agent 循环与设置界面间的共享辅助。 | R:code:nanobot/apps/cli/service.py | A:读 CLI Apps 运行时信息的代码 | S:-
+
+===/<repository>/nanobot/audio/===
+__init__.py[IC1T]: F:音频服务辅助入口。 | R:code:nanobot/audio/transcription.py | A:使用音频服务的代码 | S:-
+transcription.py[IC5M]: F:应用级语音转写服务：配置解析、入站校验与调用转写 provider。 | R:code:nanobot/audio/transcription_registry.py,code:nanobot/providers/transcription.py | A:改语音转写行为的开发者 | S:provider 适配在 providers/transcription，本模块只管行为与配置。
+transcription_registry.py[IC4S]: F:语音转写 provider 注册表与名称解析。 | R:code:nanobot/providers/transcription.py | A:新增转写 provider 的开发者 | S:provider 名称是配置契约，改名需兼容旧配置。
+
+===/<repository>/nanobot/bus/===
+__init__.py[CM1T]: F:消息总线包入口。 | R:code:nanobot/bus/queue.py | A:使用总线的代码 | S:-
+events.py[CM4T]: F:总线事件类型：入站与出站消息结构。 | R:code:nanobot/bus/outbound_events.py | A:改消息结构的开发者 | S:字段是跨渠道契约，新增字段需保证旧渠道可忽略。
+outbound_events.py[CM5M]: F:出站消息携带的类型化事件：进度、重试、流式增量与轮次结束。 | R:code:nanobot/bus/events.py | A:改流式输出与进度事件的开发者 | S:事件是出站消息的载荷，总线仍只传 OutboundMessage；类型收窄需前端同步。
+progress.py[CM4T]: F:把 agent 进度回调转成出站聊天消息。 | R:code:nanobot/bus/queue.py | A:改进度投递的开发者 | S:-
+queue.py[CM4T]: F:异步消息队列，解耦渠道与 agent。 | R:code:nanobot/agent/loop.py | A:改消息流转的开发者 | S:队列关闭后入队需显式失败，不能静默丢弃。
+runtime_events.py[CM5M]: F:运行时事件总线：轮次状态、目标变更与模型变更等状态通知。 | R:code:nanobot/bus/queue.py | A:改运行时状态通知的开发者 | S:与消息总线严格分离：此总线只传状态，不传用户消息。
+
+===/<repository>/nanobot/cli/===
+__init__.py[EO1T]: F:CLI 包入口。 | R:code:nanobot/cli/commands.py | A:CLI 命令实现 | S:-
+agent.py[EO5M]: F:直接与交互式 agent 命令的实现。 | R:code:nanobot/agent/loop.py,code:nanobot/cli/terminal.py | A:改 agent 命令的开发者 | S:交互式路径依赖 TTY，非交互环境需降级到单轮执行。
+commands.py[EO7L]: F:Typer 主命令集：setup、status、agent、webui、gateway、serve、channels 与 trigger。 | R:code:nanobot/cli/gateway.py,code:docs/cli-reference.md | A:改 CLI 命令的开发者 | S:命令与文档 docs/cli-reference.md 必须同步，新增命令要登记到 help。
+gateway.py[EO5M]: F:前台与后台网关控制的 Typer 命令。 | R:code:nanobot/cli/gateway_runtime.py | A:改网关命令的开发者 | S:前后台路径共用运行时，改一处要回归两条路径。
+gateway_runtime.py[EO7L]: F:前台网关运行时与生命周期：启动、健康探测、信号处理与优雅关闭。 | R:code:nanobot/channels/manager.py | A:改网关运行时的开发者 | S:信号处理器必须可重复安装且关闭时释放资源，否则端口残留。
+log_control.py[EO2T]: F:CLI 命令共享的日志可见性开关。 | R:code:nanobot/utils/logging_bridge.py | A:控制日志输出的命令 | S:-
+models.py[EO3T]: F:onboard 向导的模型信息辅助。 | R:code:nanobot/providers/registry.py | A:改模型向导的开发者 | S:模型补全因 litellm 暂不可用而受限，不要假设有完整模型库。
+onboard.py[EO8L]: F:交互式初始化问卷：provider 选择、密钥录入、渠道启用与配置落盘。 | R:code:nanobot/config/loader.py,code:nanobot/cli/models.py | A:改初始化流程的开发者 | S:向导写入的配置必须经 schema 校验；非交互环境要能跳过提问。
+provider.py[EO5M]: F:OAuth provider 认证的 Typer 命令。 | R:code:nanobot/providers/registry.py | A:改 OAuth 登录命令的开发者 | S:token 存储走统一接口，命令层不直接写文件。
+runtime_config.py[EO5S]: F:CLI 命令共享的配置加载与诊断输出。 | R:code:nanobot/config/loader.py,code:nanobot/config/errors.py | A:改配置诊断输出的开发者 | S:配置错误需输出用户可读建议，不打印原始堆栈。
+stream.py[EO5M]: F:CLI 流式渲染：Rich Live 就地更新与思考指示。 | R:code:nanobot/agent/progress_hook.py | A:改终端流式输出的开发者 | S:Live 渲染须在退出时清理，异常路径也要恢复光标。
+terminal.py[EO5L]: F:交互式终端的输入与渲染辅助：TTY 模式、历史与键绑定。 | R:code:nanobot/cli/agent.py | A:改终端交互的开发者 | S:退出与异常时必须恢复终端原始属性，否则会残留无回显状态。
+webui.py[EO5M]: F:WebUI 启动命令。 | R:code:nanobot/cli/webui_support.py | A:改 WebUI 命令的开发者 | S:已有前台网关在跑时需复用而不是再起一个。
+webui_support.py[EO5L]: F:WebUI 的设置、URL、健康检查与浏览器打开辅助。 | R:code:nanobot/webui/build.py | A:改 WebUI 启动流程的开发者 | S:构建模式在非交互环境应跳过确认，避免挂起。
+
+===/<repository>/nanobot/command/===
+__init__.py[IM2T]: F:斜杠命令路由与内置处理的包入口。 | R:code:nanobot/command/router.py | A:使用命令路由的代码 | S:-
+builtin.py[IM7L]: F:内置斜杠命令处理器：stop、restart、status、模型切换等。 | R:code:nanobot/command/router.py | A:新增或修改斜杠命令的开发者 | S:命令若会启动 agent 轮次必须显式声明，否则会被当作纯文本回复。
+router.py[IM4S]: F:斜杠命令的最小路由表与命令上下文。 | R:code:nanobot/command/builtin.py | A:改命令路由的开发者 | S:命令文本需先归一化，再查表；未命中回退给 agent。
+
+===/<repository>/nanobot/config/===
+__init__.py[LC3T]: F:配置包入口，聚合 schema 与加载器。 | R:code:nanobot/config/schema.py | A:使用配置的代码 | S:-
+errors.py[LC4S]: F:用户安全的配置诊断：问题结构、加载错误与友好消息。 | R:code:nanobot/config/schema.py | A:改配置错误展示的开发者 | S:错误消息不得包含密钥原文。
+loader.py[LC7M]: F:配置加载与保存：路径解析、SSRF 白名单注入与原子写。 | R:code:nanobot/config/schema.py,code:nanobot/security/network.py | A:改配置读写的开发者 | S:加载时需把 ssrf_whitelist 注入安全层；保存必须原子替换，避免半个配置文件。
+paths.py[LC4T]: F:运行时路径辅助：数据目录、媒体、cron、日志与 WebUI 目录。 | R:code:nanobot/config/loader.py | A:所有读写运行时文件的代码 | S:路径一律由当前配置上下文派生，禁止硬编码 ~/.nanobot。
+schema.py[LC8L]: F:Pydantic 配置模型：渠道、provider、模型预设、agent 默认与 dreaming 等全量结构。 | R:code:nanobot/config/loader.py,code:docs/configuration.md | A:任何新增配置项的开发者 | S:新增字段需给默认值并同步文档；校验错误要可定位到具体键。
+timezone.py[LC2T]: F:系统时区探测，用于 agent 默认值。 | R:code:nanobot/config/schema.py | A:依赖时区默认值的代码 | S:探测失败需回退到 UTC。
+watcher.py[LC2T]: F:配置文件变更的系统级通知。 | R:code:nanobot/config/loader.py | A:改配置热更新的开发者 | S:-
+
+===/<repository>/nanobot/cron/===
+__init__.py[CW3T]: F:定时任务服务入口，惰性导出服务与类型。 | R:code:nanobot/cron/service.py | A:使用 cron 的代码 | S:-
+bound_runner.py[CW5S]: F:会话绑定 cron 任务的执行辅助。 | R:code:nanobot/cron/service.py,code:nanobot/cron/session_turns.py | A:改绑定任务执行的开发者 | S:绑定任务的结果投递回原会话，不能另起会话。
+service.py[CW8L]: F:定时任务服务：调度计算、增删改查、到期执行与运行记录。 | R:code:nanobot/cron/types.py,code:nanobot/cron/bound_runner.py | A:改调度行为的开发者 | S:一次性任务的过去时间必须拒绝；下次运行时间按 schedule 统一计算，不能各处分算。
+session_delivery.py[CW2T]: F:绑定 cron 轮次回原会话投递的辅助。 | R:code:nanobot/cron/bound_runner.py | A:改 cron 投递路由的开发者 | S:-
+session_turns.py[CW3T]: F:定时会话轮次的元数据辅助：触发来源、运行 ID 与延后判定。 | R:code:nanobot/agent/cron_turns.py | A:改 cron 轮次元数据的开发者 | S:元数据键是跨模块契约，改名需全仓搜索。
+types.py[CW4S]: F:cron 数据类型：调度、载荷、运行记录与任务状态。 | R:code:nanobot/cron/service.py | A:改 cron 数据结构的开发者 | S:持久化字段需容错解析，缺失时用默认值而非抛错。
+webui_metadata.py[CW2T]: F:cron 主动投递的 WebUI 元数据辅助。 | R:code:nanobot/webui/session_automations.py | A:改 cron 界面展示的开发者 | S:-
+
+===/<repository>/nanobot/gateway/===
+__init__.py[IO2T]: F:网关后台运行时入口。 | R:code:nanobot/gateway/runtime.py | A:使用网关运行时的代码 | S:-
+runtime.py[IO4S]: F:网关的后台进程配置：启动命令、路径与实例后缀。 | R:code:nanobot/process_runtime.py | A:改网关后台进程的开发者 | S:实例后缀与工作区绑定，多实例需区分状态文件。
+service.py[IO5M]: F:注册与管理操作系统级网关服务（systemd 等）。 | R:code:nanobot/gateway/runtime.py | A:改服务安装的开发者 | S:服务文件写入系统目录，需显式确认并支持卸载。
+
+===/<repository>/nanobot/pairing/===
+__init__.py[IS3T]: F:私聊发送者配对审批模块入口。 | R:code:nanobot/pairing/store.py | A:使用配对的渠道代码 | S:-
+store.py[IS5M]: F:配对存储：生成/核销配对码并持久化已批准发送者。 | R:code:nanobot/security/workspace_policy.py | A:改访问审批的开发者 | S:配对文件含授权主体，写入需原子且过期项要回收。
+
+===/<repository>/nanobot/sdk/===
+__init__.py[IL1T]: F:Python SDK 内部辅助入口。 | R:code:nanobot/sdk/clients.py | A:SDK 使用者 | S:-
+clients.py[IL4M]: F:SDK 便捷客户端：会话、记忆与运行时操作。 | R:code:nanobot/nanobot.py | A:改 SDK 客户端的开发者 | S:客户端只做薄封装，业务逻辑留在核心。
+runtime.py[IL2T]: F:SDK 调用的运行时辅助。 | R:code:nanobot/agent/model_runtime.py | A:改 SDK 运行时装配的开发者 | S:-
+streaming.py[IL4M]: F:SDK 流式支持：运行流、事件发射与流式钩子。 | R:code:nanobot/agent/hook.py | A:改 SDK 流式接口的开发者 | S:流必须可提前关闭，否则会挂住调用方。
+types.py[IL4S]: F:SDK 公开值对象与事件常量。 | R:code:nanobot/sdk/clients.py | A:SDK 使用者 | S:这些类型是对外契约，改动需保持兼容。
+
+===/<repository>/nanobot/security/===
+__init__.py[CS1T]: F:安全基础设施包入口。 | R:code:nanobot/security/network.py | A:安全相关代码 | S:-
+network.py[CS7M]: F:网络安全：SSRF 防护、内网地址判定、URL 校验与代理信任。 | R:code:nanobot/agent/tools/web.py,code:conftest.py | A:所有出站请求相关代码 | S:唯一允许解析受限地址的入口是读取 ssrf_whitelist 的配置路径；其余出站必须校验并钉扎 DNS。
+workspace_access.py[CS6L]: F:工作区访问作用域与沙箱能力：作用域解析、访问模式与状态。 | R:code:nanobot/security/workspace_policy.py | A:改工作区权限的开发者 | S:作用域必须由解析器构建，手工拼路径会绕过访问控制。
+workspace_policy.py[CS5S]: F:工作区路径边界守卫：路径解析、包含判定与允许性检查。 | R:- | A:所有文件与 shell 工具 | S:这是应用级守卫，路径判定不得跳过，也不能用字符串前缀代替真实解析。
+
+===/<repository>/nanobot/session/===
+__init__.py[DD1T]: F:会话管理包入口。 | R:code:nanobot/session/manager.py | A:使用会话的代码 | S:-
+automation_turns.py[DD4T]: F:会话绑定自动化轮次的共享处理与历史覆盖。 | R:code:nanobot/session/manager.py | A:改自动化轮次的开发者 | S:自动化消息在历史中可被标记隐藏，展示层依赖同一判定。
+goal_state.py[DD4S]: F:持续目标的会话元数据辅助，兼容旧键名。 | R:code:nanobot/agent/tools/long_task.py | A:改目标状态存储的开发者 | S:旧键 thread_goal 仍需可读，迁移要一次性丢弃旧键。
+history_visibility.py[DD2T]: F:持久化历史消息的可见性判定。 | R:code:nanobot/webui/session_access.py | A:改历史展示的开发者 | S:-
+keys.py[DD3T]: F:会话键常量与渠道映射辅助。 | R:code:nanobot/session/manager.py | A:构造会话键的代码 | S:会话键格式是跨模块契约，拼接需用此处辅助。
+manager.py[DD8L]: F:会话管理：历史持久化、回放裁剪、预览与元数据。 | R:code:nanobot/session/keys.py,code:nanobot/session/history_visibility.py | A:改会话存储的开发者 | S:历史必须按行原子追加；回放裁剪要保留工具调用与结果的配对。
+model_selection.py[DD2T]: F:会话级模型预设元数据。 | R:code:nanobot/agent/model_presets.py | A:改模型选择的开发者 | S:-
+turn_continuation.py[DD5M]: F:轮次续接策略：预算边界下的续跑、持久化与收尾判定。 | R:code:nanobot/agent/runner.py | A:改预算与续跑行为的开发者 | S:续跑策略留在此模块，不要塞回 AgentLoop。
+webui_turns.py[DD6L]: F:WebUI 会话轮次辅助：轮次投影、标题生成与快照同步。 | R:code:nanobot/webui/transcript.py | A:改 WebUI 轮次的开发者 | S:投影需与转录保持一致，标题生成需过滤模型输出噪声。
+
+===/<repository>/nanobot/web/===
+__init__.py[IO2T]: F:内嵌 WebUI 静态资源包，dist 目录存放构建产物。 | R:code:nanobot/webui/build.py | A:WebUI 打包相关代码 | S:dist 由构建产出，不要手写或提交。
+
+===/<repository>/nanobot/utils/===
+__init__.py[CG4T]: F:工具函数包入口，提供惰性模块别名。 | R:- | A:使用工具函数的代码 | S:-
+artifacts.py[CD4S]: F:生成媒体的产物落盘：data URL 解码、目录约束与产物路径。 | R:code:nanobot/utils/media_decode.py | A:改产物存储的开发者 | S:保存目录必须限制在允许根内，不能接受任意相对路径。
+cancellation.py[CR2T]: F:异步取消状态判定辅助。 | R:- | A:需要探测取消的异步代码 | S:-
+dict_keys.py[CG2T]: F:混合 camelCase 与 snake_case 的持久化 JSON 取值辅助。 | R:- | A:读取历史 JSON 的代码 | S:兼容取值优先，不要假设只有一种命名风格。
+document.py[CG5L]: F:文档文本抽取：PDF、DOCX 等格式的安全解析与页范围限制。 | R:- | A:改文档读取能力的开发者 | S:解析外部文档需限制页数与大小，异常要转为可读错误。
+evaluator.py[CA4S]: F:心跳后的通知评估：判定是否值得打扰用户。 | R:code:nanobot/templates/agent/evaluator.md | A:改心跳评估的开发者 | S:评估失败时按不打扰处理。
+file_edit_events.py[CM5L]: F:文件编辑活动辅助：快照、追踪与行级 diff 统计。 | R:code:nanobot/agent/hooks/file_edit_activity.py | A:改文件编辑上报的开发者 | S:diff 统计基于快照对比，未读过的文件不能伪造编辑。
+gitstore.py[CP5L]: F:基于 dulwich 的记忆文件版本控制。 | R:code:nanobot/agent/memory.py | A:改记忆版本化的开发者 | S:提交需带明确信息并容忍空提交；仓库损坏要可重建。
+helpers.py[CG9L]: F:通用工具函数集合：代理字符清理、token 估算、文件名安全化与文本截断等。 | R:- | A:几乎所有模块 | S:这里是最易被依赖的公共层，改动要评估全仓影响。
+llm_runtime.py[CI3S]: F:单次 LLM 轮次的不可变执行设置。 | R:code:nanobot/providers/factory.py | A:改模型运行时的开发者 | S:设置对象不可变，变更要新建而非就地修改。
+logging_bridge.py[CO3T]: F:把标准库 logging 桥接到 loguru。 | R:- | A:第三方库日志接入 | S:-
+media_decode.py[CG3T]: F:把 data URL 解码落盘的共享辅助。 | R:code:nanobot/utils/artifacts.py | A:处理入站媒体的开发者 | S:超限必须抛明确错误，不能静默截断。
+path.py[CG3S]: F:展示用路径缩写工具。 | R:- | A:展示路径的 UI 与 CLI | S:缩写只影响展示，不得用于真实路径判定。
+progress_events.py[CM3S]: F:结构化进度事件辅助：回调能力探测与事件调用。 | R:code:nanobot/bus/progress.py | A:改进度回调的开发者 | S:回调签名兼容由能力探测处理，不要用 try/except 猜。
+prompt_templates.py[CG3T]: F:Jinja2 提示模板的加载与渲染。 | R:code:nanobot/templates/agent/identity.md | A:改提示模板渲染的开发者 | S:模板变量缺失需显式报错，静默空串会产出错误提示。
+restart.py[CR3T]: F:重启通知消息的格式化与环境传递。 | R:code:nanobot/utils/run_records.py | A:改重启流程的开发者 | S:-
+run_records.py[CR3T]: F:自动化执行的持久化 JSON 运行记录。 | R:- | A:改运行记录的开发者 | S:写入必须原子，文件名需安全化。
+runtime.py[CG4M]: F:运行时辅助：空工具结果处理、预算与长度收尾消息构建。 | R:code:nanobot/agent/runner.py | A:改收尾消息的开发者 | S:空工具结果必须补占位，否则部分 provider 会拒绝请求。
+searchusage.py[CI3S]: F:网页搜索 provider 的用量查询，供 /status 使用。 | R:code:nanobot/command/builtin.py | A:改用量查询的开发者 | S:外部用量接口失败需降级为未知，不影响 /status。
+subagent_channel_display.py[CM2T]: F:剥离子代理宣告中的内部脚手架。 | R:code:nanobot/agent/subagent.py | A:面向用户展示子代理消息的代码 | S:-
+tool_hints.py[CM4S]: F:工具调用的紧凑人类可读提示格式化。 | R:code:nanobot/agent/progress_hook.py | A:改工具提示展示的开发者 | S:命令需缩写与脱敏，避免泄露长参数与凭据。
+workspace_prompts.py[CG3T]: F:工作区本地提示覆盖的共享文件处理。 | R:code:nanobot/templates/prompts/README.md | A:改提示覆盖的开发者 | S:覆盖文件位于工作区，读取要经工作区校验。
+
+===/<repository>/nanobot/triggers/===
+__init__.py[CW3T]: F:本地触发器支持入口。 | R:code:nanobot/triggers/local_store.py | A:使用本地触发器的代码 | S:-
+local_runner.py[CW5M]: F:本地触发器的网关投递循环与终端错误处理。 | R:code:nanobot/triggers/local_store.py | A:改触发器投递的开发者 | S:投递失败需记录并区分可重试与终端错误。
+local_session_turns.py[CW3T]: F:本地触发器会话轮次的元数据辅助。 | R:code:nanobot/triggers/local_turns.py | A:改触发器轮次的开发者 | S:-
+local_store.py[CW6L]: F:工作区级本地触发器存储与投递队列。 | R:code:nanobot/triggers/local_types.py | A:改触发器存储的开发者 | S:存储按工作区隔离，跨工作区读写会串触发器。
+local_turns.py[CW3T]: F:本地触发轮次的协调与延后判定。 | R:code:nanobot/triggers/local_runner.py | A:改触发时机的开发者 | S:会话繁忙时触发器轮次需延后，避免与用户轮次交错。
+local_types.py[CW4S]: F:本地触发器的持久化类型：触发器、投递与运行记录。 | R:code:nanobot/triggers/local_store.py | A:改触发器数据结构的开发者 | S:字段容错解析，缺失用默认值。
+
+===/<repository>/nanobot/providers/===
+__init__.py[II3T]: F:LLM provider 抽象包入口，惰性导出具体实现。 | R:code:nanobot/providers/base.py | A:使用 provider 的代码 | S:-
+anthropic_provider.py[II7L]: F:Anthropic provider：直连 SDK 支持 Claude，含工具调用 ID 规整。 | R:code:nanobot/providers/base.py | A:改 Anthropic 接入的开发者 | S:工具 ID 需按版本规则清理，非法字符会导致请求被拒。
+azure_openai_provider.py[II5L]: F:Azure OpenAI provider，基于 Responses API 与令牌换取。 | R:code:nanobot/providers/openai_responses/parsing.py | A:改 Azure 接入的开发者 | S:端点必须带 /openai/v1/ 前缀；令牌需按时刷新。
+base.py[II9L]: F:LLM provider 基类：流式接口、工具调用结构、对话状态与空闲超时。 | R:code:nanobot/providers/registry.py | A:所有 provider 实现者 | S:provider 接口是核心边界，新增能力优先在具体 provider 内实现，避免基类膨胀。
+bedrock_provider.py[II6L]: F:AWS Bedrock Converse provider。 | R:code:nanobot/providers/base.py | A:改 Bedrock 接入的开发者 | S:流式响应为迭代器，需处理空页与异常中断。
+conversation_state.py[II4M]: F:provider 自有对话状态的协调与消息合并策略。 | R:code:nanobot/providers/base.py | A:改对话状态管理的开发者 | S:是否需要发送完整历史由 provider 决定，不要统一假设。
+factory.py[II5M]: F:按配置装配 LLM provider，并校验 provider 设置。 | R:code:nanobot/providers/registry.py,code:nanobot/config/schema.py | A:新增 provider 或改装配的开发者 | S:装配需给出可读的配置错误，而不是在首次请求时失败。
+fallback_provider.py[II5L]: F:回退 provider：主模型失败时透明切换到备用模型。 | R:code:nanobot/providers/base.py | A:改回退策略的开发者 | S:回退需保留原始错误信息，且不得重复已发生的副作用。
+github_copilot_provider.py[II4M]: F:GitHub Copilot 的 OAuth 接入 provider。 | R:code:nanobot/providers/registry.py | A:改 Copilot 接入的开发者 | S:token 由统一存储管理，登录状态需可查询。
+image_generation.py[II7L]: F:图像生成 provider 辅助：请求构造、产物读取与多 provider 适配。 | R:code:nanobot/utils/artifacts.py | A:改图像生成的开发者 | S:产物落盘走 artifacts，路径与大小需受限。
+oauth_guidance.py[II1T]: F:OAuth 依赖缺失时的共享恢复提示文案。 | R:code:nanobot/providers/registry.py | A:OAuth 相关错误处理 | S:-
+openai_codex_oauth.py[II4M]: F:WebUI 下 Codex 交互式登录的适配层。 | R:code:nanobot/providers/openai_codex_provider.py | A:改 Codex 登录的开发者 | S:登录流程有状态，必须可取消且并发受限。
+openai_codex_provider.py[II6L]: F:OpenAI Codex Responses provider，含压缩与推理选项。 | R:code:nanobot/providers/openai_responses/parsing.py | A:改 Codex 接入的开发者 | S:重放时需剥离响应项 ID，否则会被服务端拒绝。
+openai_compat_provider.py[II8L]: F:所有非 Anthropic 的 OpenAI 兼容 provider 实现。 | R:code:nanobot/providers/base.py,code:nanobot/providers/registry.py | A:改兼容层行为的开发者 | S:各厂商差异集中在此，新增 vendor 特殊处理要做能力判定而非硬编码名称。
+registry.py[II7L]: F:provider 注册表：元数据、模型规格与动态规格创建的唯一来源。 | R:code:nanobot/providers/base.py,code:nanobot/webui/settings_api.py | A:新增或修改 provider 的开发者 | S:provider 元数据只能从此处提供，其他层不得私建清单。
+transcription.py[II6L]: F:语音转写 provider 适配：外部 ASR 服务调用与表单构造。 | R:code:nanobot/audio/transcription_registry.py | A:新增转写 provider 的开发者 | S:只负责调用外部服务，行为与配置解析在 audio/transcription。
+unconfigured_provider.py[II3T]: F:首次配置前占位的 provider。 | R:code:nanobot/providers/factory.py | A:首次启动流程 | S:-
+xai_grok_provider.py[II6L]: F:xAI 订阅 provider，含托管 X 搜索能力门控。 | R:code:nanobot/providers/xai_oauth.py | A:改 xAI 接入的开发者 | S:托管搜索需按能力检测启用，不能无条件附加工具。
+xai_oauth.py[II6L]: F:xAI 订阅的 OAuth（授权码加 PKCE）登录支持。 | R:code:nanobot/providers/xai_grok_provider.py | A:改 xAI 登录的开发者 | S:回调有超时与单次消费约束，重放需拒绝。
+
+===/<repository>/nanobot/providers/openai_responses/===
+__init__.py[II3T]: F:Responses 协议 provider 后端的共享辅助入口。 | R:code:nanobot/providers/openai_responses/parsing.py | A:实现 Responses provider 的开发者 | S:-
+converters.py[II5M]: F:把 Chat Completions 的消息与工具转成 Responses 格式。 | R:code:nanobot/providers/openai_responses/parsing.py | A:改协议转换的开发者 | S:工具输出与用户消息结构不同，转换需逐类型处理。
+parsing.py[II7L]: F:解析 Responses API 的 SSE 流与 SDK 对象，含托管搜索事件。 | R:code:nanobot/providers/openai_responses/state.py | A:改 Responses 解析的开发者 | S:SSE 事件需容忍未知类型；结束原因要统一映射。
+state.py[II5M]: F:Responses 的不透明对话状态：输入准备与压缩阈值。 | R:code:nanobot/providers/openai_responses/parsing.py | A:改状态重放的开发者 | S:状态需与请求指纹匹配，指纹变化时不得复用。
+
+===/<repository>/nanobot/templates/===
+AGENTS.md[FS3T]: F:工作区 agent 指令模板，随初始化复制到工作区。 | R:code:nanobot/utils/workspace_prompts.py | A:初始化工作区的用户 | S:模板是行为面，改动等同改 agent 行为。
+HEARTBEAT.md[FS2T]: F:心跳任务模板，供用户填写周期检查项。 | R:code:nanobot/utils/evaluator.py | A:使用心跳的用户 | S:-
+SOUL.md[FS2T]: F:人格设定模板。 | R:code:nanobot/templates/legacy/SOUL.md | A:初始化工作区的用户 | S:-
+USER.md[FS3T]: F:用户画像模板，供长期记忆写入。 | R:code:nanobot/agent/memory.py | A:使用记忆功能的用户 | S:-
+
+===/<repository>/nanobot/templates/agent/_snippets/===
+untrusted_content.md[FS1T]: F:提示片段：声明网页内容属不可信外部输入。 | R:code:nanobot/agent/tools/web.py | A:改提示的开发者 | S:-
+
+===/<repository>/nanobot/templates/agent/===
+consolidator_archive.md[FS2T]: F:历史归档提示：抽取关键事实并标注重要性。 | R:code:nanobot/agent/memory.py | A:改归档提示的开发者 | S:-
+cron_reminder.md[FS2T]: F:定时任务到期提醒的执行提示。 | R:code:nanobot/cron/bound_runner.py | A:改 cron 提示的开发者 | S:-
+dream.md[FS4S]: F:Dream 记忆整合提示：事实归类与文件路由规则。 | R:code:nanobot/agent/memory.py | A:改记忆整合的开发者 | S:文件路由规则决定事实写往哪个记忆文件，改错会导致信息错位。
+evaluator.md[FS2T]: F:通知评估提示，判定是否打扰用户。 | R:code:nanobot/utils/evaluator.py | A:改心跳评估的开发者 | S:-
+goal_runtime.md[FS3T]: F:持续目标的运行时指导提示。 | R:code:nanobot/agent/tools/long_task.py | A:改长任务提示的开发者 | S:-
+identity.md[FS3T]: F:运行时身份提示，注入平台与时间等环境信息。 | R:code:nanobot/utils/prompt_templates.py | A:改身份注入的开发者 | S:-
+max_iterations_message.md[FS1T]: F:达到最大迭代数时返回给用户的说明。 | R:code:nanobot/agent/runner.py | A:改收尾文案的开发者 | S:-
+platform_policy.md[FS2T]: F:平台策略提示，按操作系统给出不同约束。 | R:code:nanobot/templates/agent/identity.md | A:改平台适配提示的开发者 | S:Windows 分支明确要求不假设 GNU 工具存在。
+skills_section.md[FS2T]: F:技能段落提示模板。 | R:code:nanobot/agent/skills.py | A:改技能注入的开发者 | S:-
+subagent_announce.md[FS2T]: F:子代理结果宣告消息模板。 | R:code:nanobot/agent/subagent.py | A:改子代理宣告的开发者 | S:-
+subagent_system.md[FS3T]: F:子代理系统提示。 | R:code:nanobot/agent/subagent.py | A:改子代理行为的开发者 | S:-
+tool_contract.md[FS4T]: F:工具使用契约提示：调用约定、结果解读与失败处理。 | R:code:nanobot/agent/tools/base.py | A:改工具约定的开发者 | S:契约文字变化会直接影响工具调用行为，需回归验证。
+
+===/<repository>/nanobot/templates/legacy/===
+SOUL.md[FS2T]: F:旧版人格模板，仅用于兼容既有工作区。 | R:code:nanobot/templates/SOUL.md | A:迁移旧工作区的代码 | S:-
+
+===/<repository>/nanobot/templates/memory/===
+MEMORY.md[FS2T]: F:长期记忆文件模板。 | R:code:nanobot/agent/memory.py | A:使用记忆功能的用户 | S:-
+
+===/<repository>/nanobot/templates/prompts/===
+README.md[FS3T]: F:工作区提示覆盖目录的说明与用法。 | R:code:nanobot/utils/workspace_prompts.py | A:需要覆盖提示的用户 | S:覆盖文件放在工作区，随工作区版本化。
+
+===/<repository>/nanobot/skills/===
+README.md[SE2T]: F:内置技能目录说明。 | R:code:nanobot/agent/skills.py | A:新增内置技能的开发者 | S:-
+
+===/<repository>/nanobot/skills/clawhub/===
+SKILL.md[SE3T]: F:clawhub 技能：从公开技能注册表搜索并安装技能。 | R:code:nanobot/webui/skills_marketplace.py | A:使用技能市场的用户 | S:-
+
+===/<repository>/nanobot/skills/cron/===
+SKILL.md[SE3T]: F:cron 技能：安排提醒与周期任务。 | R:code:nanobot/agent/tools/cron.py | A:使用定时任务的用户 | S:-
+
+===/<repository>/nanobot/skills/github/===
+SKILL.md[SE3T]: F:github 技能：通过 gh CLI 操作 issue、PR 与 CI。 | R:code:nanobot/agent/tools/shell.py | A:使用 GitHub 的用户 | S:依赖本机已安装并登录 gh。
+
+===/<repository>/nanobot/skills/image-generation/===
+SKILL.md[SE3T]: F:图像生成技能：生成图片并迭代编辑产物。 | R:code:nanobot/agent/tools/image_generation.py | A:使用绘图能力的用户 | S:-
+
+===/<repository>/nanobot/skills/memory/===
+SKILL.md[SE3T]: F:记忆技能：检索会话历史并理解 Dream 管理的记忆文件。 | R:code:nanobot/agent/memory.py | A:需要回溯记忆的用户 | S:-
+
+===/<repository>/nanobot/skills/my/===
+SKILL.md[SE3T]: F:my 技能：查看并按需调整运行时状态。 | R:code:nanobot/agent/tools/self.py | A:调整运行时参数的用户 | S:-
+
+===/<repository>/nanobot/skills/skill-creator/===
+SKILL.md[SE5M]: F:技能创作技能：设计结构、编写脚本与打包发布。 | R:code:nanobot/skills/skill-creator/scripts/package_skill.py | A:创建技能的用户与开发者 | S:结构约定由 scripts 校验，手写目录需通过 quick_validate。
+
+===/<repository>/nanobot/skills/skill-creator/scripts/===
+init_skill.py[SE3M]: F:按模板初始化技能目录骨架。 | R:code:nanobot/skills/skill-creator/SKILL.md | A:创建新技能的开发者 | S:-
+package_skill.py[SE3S]: F:把技能目录打包成可分发归档。 | R:code:nanobot/skills/skill-creator/SKILL.md | A:发布技能的开发者 | S:打包前需校验，避免发布缺字段的技能。
+quick_validate.py[SE3M]: F:快速校验技能目录结构与必需字段。 | R:code:nanobot/skills/skill-creator/SKILL.md | A:创建技能的开发者 | S:-
+
+===/<repository>/nanobot/skills/summarize/===
+SKILL.md[SE3T]: F:摘要技能：总结或抽取 URL、播客与本地文件的文本。 | R:code:nanobot/agent/tools/web.py | A:需要摘要的用户 | S:-
+
+===/<repository>/nanobot/skills/tmux/===
+SKILL.md[SE3S]: F:tmux 技能：通过发送按键与抓取窗口输出遥控交互式 CLI。 | R:code:nanobot/skills/tmux/scripts/find-sessions.sh | A:使用远程终端自动化的用户 | S:依赖本机 tmux。
+
+===/<repository>/nanobot/skills/tmux/scripts/===
+find-sessions.sh[SE2S]: F:列出可用 tmux 会话。 | R:code:nanobot/skills/tmux/SKILL.md | A:tmux 技能的调用方 | S:-
+wait-for-text.sh[SE2T]: F:等待 tmux 窗口出现指定文本。 | R:code:nanobot/skills/tmux/SKILL.md | A:tmux 技能的调用方 | S:需设超时，否则会永久等待。
+
+===/<repository>/nanobot/skills/update-setup/===
+SKILL.md[SE4S]: F:升级技能的一次性配置向导。 | R:code:nanobot/optional_features.py | A:使用升级技能的用户 | S:仅在首次配置时运行，重复运行会覆盖既有设置。
+
+===/<repository>/nanobot/skills/weather/===
+SKILL.md[SE2T]: F:天气技能：获取当前天气与预报，无需 API key。 | R:code:nanobot/agent/tools/web.py | A:查询天气的用户 | S:-
+
+===/<repository>/scripts/===
+install.sh[FO6M]: F:POSIX 安装脚本：从 PyPI 或源码安装并做环境校验。 | R:code:scripts/install.ps1 | A:Linux 与 macOS 安装用户 | S:脚本需可重复执行，失败要给出可操作提示。
+install.ps1[FO6M]: F:Windows 安装脚本，行为与 install.sh 对齐。 | R:code:scripts/install.sh | A:Windows 安装用户 | S:两个平台的安装路径与校验必须保持一致。
+install_channel_dependencies.py[FV3T]: F:按渠道 manifest 安装渠道依赖，供构建与 CI 使用。 | R:code:nanobot/channels/registry.py | A:改渠道依赖安装的开发者 | S:依赖来源是各渠道 manifest，新增渠道无需改此脚本。
+
+===/<repository>/webui/src/i18n/locales/en/===
+common.json[CL8L]: F:WebUI 主界面英文文案，是全部语言包的键结构基准。 | R:code:webui/src/i18n/index.ts | A:维护 WebUI 文案的开发者与译者 | S:此文件是键结构基准，新增键必须先落在这里，其余语言跟随。
+
+===/<repository>/webui/src/i18n/locales/es/===
+common.json[CL2L]: F:WebUI 主界面西班牙语文案。 | R:code:webui/src/i18n/locales/en/common.json | A:维护西语文案的译者 | S:键集合必须与 en 一致，只改文案不改键。
+
+===/<repository>/webui/src/i18n/locales/fr/===
+common.json[CL2L]: F:WebUI 主界面法语文案。 | R:code:webui/src/i18n/locales/en/common.json | A:维护法语文案的译者 | S:键集合必须与 en 一致，只改文案不改键。
+
+===/<repository>/webui/src/i18n/locales/id/===
+common.json[CL2L]: F:WebUI 主界面印尼语文案。 | R:code:webui/src/i18n/locales/en/common.json | A:维护印尼语文案的译者 | S:键集合必须与 en 一致，只改文案不改键。
+
+===/<repository>/webui/src/i18n/locales/ja/===
+common.json[CL2L]: F:WebUI 主界面日语文案。 | R:code:webui/src/i18n/locales/en/common.json | A:维护日语文案的译者 | S:键集合必须与 en 一致，只改文案不改键。
+
+===/<repository>/webui/src/i18n/locales/ko/===
+common.json[CL2L]: F:WebUI 主界面韩语文案。 | R:code:webui/src/i18n/locales/en/common.json | A:维护韩语文案的译者 | S:键集合必须与 en 一致，只改文案不改键。
+
+===/<repository>/webui/src/i18n/locales/pt-BR/===
+common.json[CL2L]: F:WebUI 主界面巴西葡萄牙语文案。 | R:code:webui/src/i18n/locales/en/common.json | A:维护葡语文案的译者 | S:键集合必须与 en 一致，只改文案不改键。
+
+===/<repository>/webui/src/i18n/locales/vi/===
+common.json[CL2L]: F:WebUI 主界面越南语文案。 | R:code:webui/src/i18n/locales/en/common.json | A:维护越南语文案的译者 | S:键集合必须与 en 一致，只改文案不改键。
+
+===/<repository>/webui/src/i18n/locales/zh-CN/===
+common.json[CL2L]: F:WebUI 主界面简体中文文案。 | R:code:webui/src/i18n/locales/en/common.json | A:维护中文文案的译者 | S:键集合必须与 en 一致，只改文案不改键。
+
+===/<repository>/webui/src/i18n/locales/zh-TW/===
+common.json[CL2L]: F:WebUI 主界面繁体中文文案。 | R:code:webui/src/i18n/locales/en/common.json | A:维护繁中文案的译者 | S:键集合必须与 en 一致，只改文案不改键。
+
+===/<repository>/nanobot/skills/my/references/===
+examples.md[SE3T]: F:my 工具的实战示例：诊断搜索不可用、迭代上限、模型查询与自适应调参场景。 | R:code:nanobot/skills/my/SKILL.md | A:使用 my 工具诊断运行时的 agent | S:示例中的键名与 my 工具 check/set 的参数一致，改键名需同步更新本文。
