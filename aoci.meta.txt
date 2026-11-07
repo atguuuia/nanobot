@@ -18,3 +18,7 @@
 #B Module: G-跨域通用 B-核心业务 I-身份权限 T-组织租户 U-用户体验 F-财务计费 K-内容知识 C-配置策略 W-流程任务 M-消息事件 N-外部集成 S-安全隐私 O-可观测审计 R-可靠性恢复 P-性能资源 A-分析智能 H-硬件设备 L-本地化 V-构建发布 Q-质量测试 E-扩展插件 Z-其他
 #C Importance: 9-最高 8-很高 7-高 6-较高 5-中等 4-较低 3-低 2-很低 1-最低
 #E Scale: L-大>400 M-中200-400 S-小100-200 T-微<100
+#Baseline-Commit: 96f50ca8533e5a2a2dc5fe9d17083401fa5ca491
+#Baseline-Upstream: b3b05176111b (HKUDS/nanobot main)
+#Baseline-Date: 2026-11-07
+#Baseline-Note: 本索引基于上述提交的代码快照生成；代码演进后请重跑 aoci scan 与 verify
